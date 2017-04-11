@@ -22,6 +22,7 @@ enum Dimension {
     Int,
 }
 
+#[derive(Debug,PartialEq,Copy,Clone)]
 enum Value {
     Int { value: i64, grain: u8, group: bool }, /*    Number(NumberKind), Float(f64), Temperature, Time, DurationUnit, Duration, Price, Cycle, Unit
                                                  * */
@@ -37,12 +38,20 @@ impl Value {
 
 #[derive(Debug)]
 struct Rule {
-    pub name: String,
+    pub name: &'static str,
     pub patterns: Vec<Box<Pattern>>,
 }
 
 impl Rule {
-    fn apply(&self, stash: &Stash, sentence: &str) -> Vec<Node> {
+    pub fn apply(&self, stash: &Stash, sentence: &str) -> Vec<Node> {
+        // 1 Matches 
+        let matches = self.matches(stash, sentence);
+
+        unimplemented!();
+    }
+
+    fn produce(&self, matches: &Vec<Match>, sentence: &str) -> Vec<Node> {
+
         unimplemented!();
     }
 
@@ -130,11 +139,18 @@ impl Pattern for RegexPattern {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
+struct ParsedNode {
+    pub root_node: Node,
+    pub value: Value,
+    pub latent: bool,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 struct Node {
+    pub rule_name: &'static str,
     pub range: Range,
-    pub dimension: Dimension,
-    pub latent: bool, //    pub content: String,
+    pub children: Vec<Node>,
 }
 
 struct RuleSet(Vec<Rule>);
@@ -156,14 +172,14 @@ mod tests {
 
     fn integer_numeric_en_rule() -> Rule {
         Rule {
-            name: "integer (numeric)".into(),
+            name: "integer (numeric)",
             patterns: vec![Box::new(integer_numeric_en_pattern())],
         }
     }
 
     fn integer_numeric_twice_en_rule() -> Rule {
         Rule {
-            name: "integer (numeric)".into(),
+            name: "integer (numeric)",
             patterns: vec![Box::new(integer_numeric_en_pattern()),
                            Box::new(integer_numeric_en_pattern())],
         }
