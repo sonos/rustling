@@ -36,23 +36,29 @@ impl Value {
     }
 }
 
+trait Producer: Debug {
+    fn produce(&self, matches: &Vec<Match>) -> ParsedNode;
+}
+
 #[derive(Debug)]
 struct Rule {
     pub name: &'static str,
     pub patterns: Vec<Box<Pattern>>,
+    pub production: Box<Producer>,
 }
 
 impl Rule {
-    pub fn apply(&self, stash: &Stash, sentence: &str) -> Vec<Node> {
+    pub fn apply(&self, stash: &Stash, sentence: &str) -> Vec<ParsedNode> {
         // 1 Matches 
+        //FIXME unify
         let matches = self.matches(stash, sentence);
-
-        unimplemented!();
+        matches.iter().map(|submatches| {
+            self.produce(submatches, sentence)
+        }).collect()
     }
 
-    fn produce(&self, matches: &Vec<Match>, sentence: &str) -> Vec<Node> {
-
-        unimplemented!();
+    fn produce(&self, matches: &Vec<Match>, sentence: &str) -> ParsedNode {
+        self.production.produce(matches)
     }
 
     fn matches(&self, stash: &Stash, sentence: &str) -> Vec<Vec<Match>> {
@@ -115,6 +121,10 @@ impl Match {
             &Match::Node(ref n) => n.range.end,
         }
     }
+
+    fn range(&self) -> Range {
+        Range::new(self.start(), self.end())
+    }
 }
 
 #[derive(Debug)]
@@ -166,22 +176,47 @@ mod tests {
     use super::*;
     use regex::Regex;
 
+    #[derive(Debug)]
+    struct ProducerTest(&'static str);
+
+    impl Producer for ProducerTest {
+        fn produce(&self, matches: &Vec<Match>) -> ParsedNode {
+            let start = matches[0].start();
+            let end = matches[matches.len() - 1].end();
+            let full_range = Range::new(start, end);
+
+            ParsedNode {
+                root_node: Node {
+                    rule_name: self.0,
+                    range: full_range,
+                    children: vec!(),
+                },
+                value: Value::Int {value: 1i64, grain: 2u8, group: false},
+                latent: false,
+            }
+        }
+    }
+
     fn integer_numeric_en_pattern() -> RegexPattern {
         RegexPattern(Regex::new(r#"(\d{1,18})"#).unwrap())
     }
 
     fn integer_numeric_en_rule() -> Rule {
+        let rule_name = "integer (numeric)";
         Rule {
-            name: "integer (numeric)",
+            name: rule_name,
             patterns: vec![Box::new(integer_numeric_en_pattern())],
+            production: Box::new(ProducerTest(rule_name)),
         }
     }
 
     fn integer_numeric_twice_en_rule() -> Rule {
+        let rule_name = "integer (numeric)";
         Rule {
-            name: "integer (numeric)",
+            name: rule_name,
             patterns: vec![Box::new(integer_numeric_en_pattern()),
                            Box::new(integer_numeric_en_pattern())],
+            production: Box::new(ProducerTest(rule_name)),
         }
     }
 
@@ -218,6 +253,26 @@ mod tests {
                         vec![Match::Text(vec![r!(11, 13), r!(11, 13)]),
                              Match::Text(vec![r!(14, 16), r!(14, 16)])]],
                    rule.matches(&vec![], "foobar: 12 42 64"));
+    }
+
+    #[test]
+    fn test_rule_production_integer_numeric_en() {
+        let rule = integer_numeric_en_rule();
+        let parsed_nodes = rule.apply(&vec!(), "foobar: 42");
+        assert_eq!(1, parsed_nodes.len());
+        assert_eq!(r!(8, 10), parsed_nodes[0].root_node.range);
+        assert_eq!(rule.name, parsed_nodes[0].root_node.rule_name);
+    }
+
+    #[test]
+    fn test_rule_production_integer_numeric_twice_en() {
+        let rule = integer_numeric_twice_en_rule();
+        let parsed_nodes = rule.apply(&vec![], "foobar: 12 42 64");
+        assert_eq!(2, parsed_nodes.len());
+        assert_eq!(r!(8, 13), parsed_nodes[0].root_node.range);
+        assert_eq!(rule.name, parsed_nodes[0].root_node.rule_name);
+        assert_eq!(r!(11, 16), parsed_nodes[1].root_node.range);
+        assert_eq!(rule.name, parsed_nodes[1].root_node.rule_name);
     }
 
     #[test]
