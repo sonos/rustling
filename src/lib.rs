@@ -69,14 +69,8 @@ impl Rule {
         new_matches.into_iter()
             .filter(|matches|{
                 let nodes: Vec<Node> = matches.into_iter().map(|match_| match_.to_node()).collect();
-                stash.iter().all(|parsed_node|{
-                    if parsed_node.root_node.children == nodes && parsed_node.root_node.rule_name == self.name {
-                        println!("===========================================================");
-                        println!("{:?}", parsed_node);
-                        println!("{:?}", nodes);
-                        println!("{:?}", self.name);
-                    }
-                    parsed_node.root_node.children != nodes && parsed_node.root_node.rule_name != self.name
+                stash.iter().all(|parsed_node| {
+                    parsed_node.root_node.children != nodes || parsed_node.root_node.rule_name != self.name
                 })
             }).collect()
     }
@@ -285,7 +279,7 @@ mod tests {
                 root_node: Node {
                     rule_name: self.0,
                     range: full_range,
-                    children: vec![first_node.root_node.clone(), second_node.root_node.clone()],
+                    children: matches.iter().map(|match_| match_.to_node()).collect(),
                 },
                 value: Value::Int {
                     value: first_integer_value + second_integer_value,
@@ -314,7 +308,11 @@ mod tests {
     }
 
     fn integer_numeric_en_pattern() -> RegexPattern {
-        RegexPattern(Regex::new(r#"(\d{1,18})"#).unwrap())
+        RegexPattern(Regex::new(r#"(\d{1,2})"#).unwrap())
+    }
+
+    fn integer_numeric_en_pattern_more() -> RegexPattern {
+        RegexPattern(Regex::new(r#"(\d{3,4})"#).unwrap())
     }
 
     fn integer_numeric_en_rule() -> Rule {
@@ -325,6 +323,16 @@ mod tests {
             production: Box::new(ProducerIntegerNumericTest(rule_name)),
         }
     }
+
+    fn integer_numeric_en_rule_more() -> Rule {
+        let rule_name = "integer (numeric)";
+        Rule {
+            name: rule_name,
+            patterns: vec![Box::new(integer_numeric_en_pattern_more())],
+            production: Box::new(ProducerIntegerNumericTest(rule_name)),
+        }
+    }
+
 
     fn integer_numeric_twice_en_rule() -> Rule {
         let rule_name = "integer (numeric)";
@@ -343,14 +351,14 @@ mod tests {
             patterns: vec![Box::new(NodePattern {
                                         predicate: Box::new(IntegerNodePredicate {
                                                                 min: 1,
-                                                                max: 100,
+                                                                max: 10000,
                                                             }),
                                     }),
                            Box::new(RegexPattern(Regex::new(r#"and"#).unwrap())),
                            Box::new(NodePattern {
                                         predicate: Box::new(IntegerNodePredicate {
                                                                 min: 1,
-                                                                max: 100,
+                                                                max: 10000,
                                                             }),
                                     })],
             production: Box::new(ProducerCompositionIntegerTest(rule_name)),
@@ -478,10 +486,11 @@ mod tests {
         let rule = integer_numeric_en_rule();
         let rule_set = RuleSet(vec![
                 integer_numeric_en_rule(),
+                integer_numeric_en_rule_more(),
                 integer_composition_en_rule(), 
             ]);
-        let output_stash = rule_set.apply_all("foobar: 12 and 42");
-        println!("{:?}", output_stash);
+        let output_stash = rule_set.apply_all("foobar: 12 and 142");
+        println!("{:?}", output_stash.iter().map(|parsed_node| parsed_node.root_node.range).collect::<Vec<_>>());
         assert_eq!(3, output_stash.len());
     }
 }
