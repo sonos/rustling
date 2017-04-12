@@ -491,6 +491,6 @@ mod tests {
             ]);
         let output_stash = rule_set.apply_all("foobar: 12 and 142");
         println!("{:?}", output_stash.iter().map(|parsed_node| parsed_node.root_node.range).collect::<Vec<_>>());
-        assert_eq!(3, output_stash.len());
+        assert_eq!(6, output_stash.len());
     }
 }
