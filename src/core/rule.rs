@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use core::{Node, ParsedNode, Stash};
+use core::{Node, ParsedNode, Stash, Value};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Range {
@@ -18,12 +18,12 @@ impl Range {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum Match {
-    ParsedNode(ParsedNode),
+pub enum Match<V:Value> {
+    ParsedNode(ParsedNode<V>),
     Text(Vec<Range>, &'static str),
 }
 
-impl Match {
+impl<V:Value> Match<V> {
     pub fn start(&self) -> usize {
         match self {
             &Match::Text(ref v, _) => v[0].start,
@@ -50,23 +50,23 @@ impl Match {
     }
 }
 
-pub trait Pattern: Debug {
-    fn predicate(&self, stash: &Stash, sentence: &str, start: usize, rule_name: &'static str) -> Vec<Match>;
+pub trait Pattern<V:Value>: Debug {
+    fn predicate(&self, stash: &Stash<V>, sentence: &str, start: usize, rule_name: &'static str) -> Vec<Match<V>>;
 }
 
-pub trait Producer: Debug {
-    fn produce(&self, matches: &Vec<Match>, sentence: &str) -> ParsedNode;
+pub trait Producer<V:Value>: Debug {
+    fn produce(&self, matches: &Vec<Match<V>>, sentence: &str) -> ParsedNode<V>;
 }
 
 #[derive(Debug)]
-pub struct Rule {
+pub struct Rule<V:Value> {
     pub name: &'static str,
-    pub patterns: Vec<Box<Pattern>>,
-    pub production: Box<Producer>,
+    pub patterns: Vec<Box<Pattern<V>>>,
+    pub production: Box<Producer<V>>,
 }
 
-impl Rule {
-    pub fn apply(&self, stash: &Stash, sentence: &str) -> Vec<ParsedNode> {
+impl<V:Value> Rule<V> {
+    pub fn apply(&self, stash: &Stash<V>, sentence: &str) -> Vec<ParsedNode<V>> {
         // 1 Matches
         //FIXME unify
         let matches = self.matches(stash, sentence);
@@ -76,11 +76,11 @@ impl Rule {
             .collect()
     }
 
-    fn produce(&self, matches: &Vec<Match>, sentence: &str) -> ParsedNode {
+    fn produce(&self, matches: &Vec<Match<V>>, sentence: &str) -> ParsedNode<V> {
         self.production.produce(matches, sentence)
     }
 
-    fn matches(&self, stash: &Stash, sentence: &str) -> Vec<Vec<Match>> {
+    fn matches(&self, stash: &Stash<V>, sentence: &str) -> Vec<Vec<Match<V>>> {
         let new_matches = self.rec_matches(stash, sentence, 0, 0, vec![]);
         new_matches.into_iter()
             .filter(|matches|{
@@ -92,12 +92,12 @@ impl Rule {
     }
 
     fn rec_matches(&self,
-                   stash: &Stash,
+                   stash: &Stash<V>,
                    sentence: &str,
                    sentence_done: usize,
                    pattern_done: usize,
-                   prefix: Vec<Match>)
-                   -> Vec<Vec<Match>> {
+                   prefix: Vec<Match<V>>)
+                   -> Vec<Vec<Match<V>>> {
 
         if pattern_done >= self.patterns.len() {
             return vec![prefix];
@@ -195,7 +195,7 @@ mod tests {
         assert_eq!(1, parsed_nodes.len());
         assert_eq!(r!(8, 10), parsed_nodes[0].root_node.range);
         assert_eq!(rule.name, parsed_nodes[0].root_node.rule_name);
-        assert_eq!(Value::Int { value: 42, grain: 1, group: false}, parsed_nodes[0].value);
+        assert_eq!(test_helpers::Value::Int { value: 42, grain: 1, group: false}, parsed_nodes[0].value);
     }
 
     #[test]
@@ -217,6 +217,6 @@ mod tests {
                          integer_node_value(42, r!(15, 17))];
         let parsed_nodes = rule.apply(&stash, sentence);
         assert_eq!(1, parsed_nodes.len());
-        assert_eq!(Value::Int { value: 54, grain: 1, group: false}, parsed_nodes[0].value);
+        assert_eq!(test_helpers::Value::Int { value: 54, grain: 1, group: false}, parsed_nodes[0].value);
     }
 }

@@ -6,11 +6,23 @@ use core::rule::*;
 use core::*;
 
 #[derive(Debug)]
-pub struct RegexPattern(pub Regex);
+pub struct RegexPattern<V:Value> {
+    pub regex: Regex,
+    pub _phantom: ::std::marker::PhantomData<V>
+}
 
-impl Pattern for RegexPattern {
-    fn predicate(&self, _stash: &Stash, sentence: &str, start: usize, rule_name: &'static str) -> Vec<Match> {
-        self.0
+impl<V:Value> RegexPattern<V> {
+    pub fn new(regex:Regex) -> RegexPattern<V> {
+        RegexPattern {
+            regex: regex,
+            _phantom: ::std::marker::PhantomData
+        }
+    }
+}
+
+impl<V:Value> Pattern<V> for RegexPattern<V> {
+    fn predicate(&self, _stash: &Stash<V>, sentence: &str, start: usize, rule_name: &'static str) -> Vec<Match<V>> {
+        self.regex
             .captures_iter(&sentence[start..])
             .map(|cap| {
                 Match::Text(cap.iter()
@@ -29,19 +41,19 @@ impl Pattern for RegexPattern {
     }
 }
 
-pub trait NodePredicate: Debug {
-    fn predicate(&self, node: &ParsedNode) -> bool;
+pub trait NodePredicate<V:Value>: Debug {
+    fn predicate(&self, node: &ParsedNode<V>) -> bool;
 }
 
 #[derive(Debug)]
-pub struct NodePattern {
-    pub predicate: Box<NodePredicate>,
+pub struct NodePattern<V:Value> {
+    pub predicate: Box<NodePredicate<V>>,
 }
 
 
-impl Pattern for NodePattern {
+impl<V:Value> Pattern<V> for NodePattern<V> {
 
-    fn predicate(&self, stash: &Stash, _sentence: &str, start: usize, _rule_name: &'static str) -> Vec<Match> {
+    fn predicate(&self, stash: &Stash<V>, _sentence: &str, start: usize, _rule_name: &'static str) -> Vec<Match<V>> {
         stash
             .iter()
             .filter(|node| self.predicate.predicate(node) && node.root_node.range.start >= start)
