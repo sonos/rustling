@@ -1,10 +1,10 @@
 mod rule;
-mod patterns;
+mod pattern;
 
 #[cfg(test)]
 mod test_helpers;
 
-use ontology::values::Value;
+use ontology::Value;
 use core::rule::{Range, Rule};
 
 #[derive(Debug, PartialEq, Clone)]

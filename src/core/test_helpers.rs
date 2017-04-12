@@ -2,7 +2,7 @@ use regex::Regex;
 
 use core::*;
 use core::rule::*;
-use core::patterns::*;
+use core::pattern::*;
 
 #[derive(Debug)]
 struct ProducerIntegerNumericTest(&'static str);

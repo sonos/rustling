@@ -126,7 +126,7 @@ impl Rule {
 #[cfg(test)]
 mod tests {
     use core::*;
-    use core::patterns::*;
+    use core::pattern::*;
     use core::rule::*;
     use core::test_helpers::*;
 
