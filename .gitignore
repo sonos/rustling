@@ -7,3 +7,7 @@
 Cargo.lock
 target
 Cargo.lock
+
+*.rustfmt
+tmp
+temp

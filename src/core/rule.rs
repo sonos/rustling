@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use core::*;
 use core::pattern::*;
 
@@ -159,11 +157,7 @@ impl<A, PA, B, PB, V, StashValue, F> Rule2<A, B, PA, PB, V, StashValue, F>
 
 #[cfg(test)]
 mod tests {
-    #[macro_use]
-    use core::*;
-    use core::pattern::*;
     use core::rule::*;
-    use core::test_helpers::*;
 
     #[test]
     fn test_integer_numeric_en_rule() {

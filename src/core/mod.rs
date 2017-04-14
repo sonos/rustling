@@ -1,30 +1,12 @@
-
-use core::pattern::TextPattern;
-
-macro_rules! reg {
-    ($typ:ty, $pattern:expr) => ( $crate::core::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $pattern) )
-}
-
-macro_rules! rule {
-    ($name:expr, ($a:expr), $f:expr) => { Box::new($crate::core::rule::Rule1::new($name, $a, $f)) };
-    ($name:expr, ($a:expr, $b:expr), $f:expr) => { Box::new($crate::core::rule::Rule2::new($name, ($a, $b), $f)) };
-//    (($a:expr, $b:expr, $c:expr), $f:expr) => { Box::new(Rule3::new(($a, $b, $c), $f)) };
-}
-
-macro_rules! dim {
-	($typ:ty) => ( $crate::core::pattern::AnyNodePattern::<$typ>::new() );
-	($typ:ty, $predicates:expr) => ( $crate::core::pattern::DimensionNodePattern::<$typ,_>::filter($predicates) );
-}
-
+#[macro_use]
+mod macros;
 mod pattern;
-#[cfg(test)]
-mod test_helpers;
 mod rule;
 
 use core::rule::Rule;
 use core::pattern::Range;
 
-trait AttemptFrom<V>: Sized {
+pub trait AttemptFrom<V>: Sized {
     fn attempt_from(v: V) -> Option<Self>;
 }
 
@@ -46,7 +28,7 @@ impl Node {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-struct ParsedNode<V: Clone> {
+pub struct ParsedNode<V: Clone> {
     pub root_node: Node,
     pub value: V,
     pub latent: bool,
@@ -62,7 +44,7 @@ impl<V: Clone> ParsedNode<V> {
     }
 }
 
-type Stash<V> = Vec<ParsedNode<V>>;
+pub type Stash<V> = Vec<ParsedNode<V>>;
 
 struct RuleSet<StashValue: Clone>(Vec<Box<Rule<StashValue>>>);
 
@@ -132,7 +114,7 @@ mod tests {
             "number thousands",
             (   dim!(usize, vec!(|a:&usize| *a > 1 && *a < 99)),
                 dim!(usize, vec!(|a:&usize| *a == 1000))),
-            |a,b| a.value*1000
+            |a,_| a.value*1000
         };
         let rule_set = RuleSet(vec![rule, rule_compo, rule_thousand]);
         let output_stash = rule_set.apply_all("foobar: 12 thousands");
@@ -143,3 +125,4 @@ mod tests {
     }
 
 }
+

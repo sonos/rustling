@@ -1,8 +1,3 @@
-use std::fmt::Debug;
-
-use regex::Regex;
-
-use core::rule::*;
 use core::*;
 
 pub type Range = (usize, usize);
