@@ -76,7 +76,6 @@ impl<V: Clone> RuleSet<V> {
 #[cfg(test)]
 mod tests {
     use core::*;
-    //    use core::test_helpers::*;
 
     impl AttemptFrom<usize> for usize {
         fn attempt_from(v: usize) -> Option<usize> {
@@ -118,11 +117,30 @@ mod tests {
         };
         let rule_set = RuleSet(vec![rule, rule_compo, rule_thousand]);
         let output_stash = rule_set.apply_all("foobar: 12 thousands");
-        println!("{:?}", output_stash);
         assert_eq!(3, output_stash.len());
         let values:Vec<_> = output_stash.iter().map(|pn| pn.value).collect();
         assert_eq!(vec![12, 1000, 12000], values);
     }
 
+    #[test]
+    fn test_integer_numeric_infix_rule() {
+        use std::str::FromStr;
+        let rule_int =
+            rule! { "int", (reg!(usize, "\\d+")), |a| usize::from_str(&*a.0[0]).unwrap() };
+        let rule_add = rule! {
+            "add",
+            (dim!(usize), reg!(usize, "\\+"), dim!(usize)),
+            |a,_,b| a.value+b.value
+        };
+        let rule_mul = rule! {
+            "mul",
+            (dim!(usize), reg!(usize, "\\*"), dim!(usize)),
+            |a,_,b| a.value*b.value
+        };
+        let rule_set = RuleSet(vec!(rule_int, rule_add, rule_mul));
+        let results = rule_set.apply_all("foo: 12 + 42, 12* 42");
+        let values:Vec<_> = results.iter().map(|pn| pn.value).collect();
+        assert_eq!(vec![ 12, 42, 12, 42, 54, 504], values);
+    }
 }
 

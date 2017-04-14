@@ -4,9 +4,12 @@ macro_rules! reg {
 }
 
 macro_rules! rule {
-    ($name:expr, ($a:expr), $f:expr) => { Box::new($crate::core::rule::Rule1::new($name, $a, $f)) };
-    ($name:expr, ($a:expr, $b:expr), $f:expr) => { Box::new($crate::core::rule::Rule2::new($name, ($a, $b), $f)) };
-//    (($a:expr, $b:expr, $c:expr), $f:expr) => { Box::new(Rule3::new(($a, $b, $c), $f)) };
+    ($name:expr, ($a:expr), $f:expr) =>
+        { Box::new($crate::core::rule::Rule1::new($name, $a, $f)) };
+    ($name:expr, ($a:expr, $b:expr), $f:expr) =>
+        { Box::new($crate::core::rule::Rule2::new($name, ($a, $b), $f)) };
+    ($name:expr, ($a:expr, $b:expr, $c:expr), $f:expr) => 
+        { Box::new($crate::core::rule::Rule3::new($name, ($a, $b, $c), $f)) };
 }
 
 macro_rules! dim {
