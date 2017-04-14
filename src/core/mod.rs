@@ -75,6 +75,7 @@ impl<V: Clone> RuleSet<V> {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
     use core::*;
 
     impl AttemptFrom<usize> for usize {
@@ -118,13 +119,12 @@ mod tests {
         let rule_set = RuleSet(vec![rule, rule_compo, rule_thousand]);
         let output_stash = rule_set.apply_all("foobar: 12 thousands");
         assert_eq!(3, output_stash.len());
-        let values:Vec<_> = output_stash.iter().map(|pn| pn.value).collect();
+        let values: Vec<_> = output_stash.iter().map(|pn| pn.value).collect();
         assert_eq!(vec![12, 1000, 12000], values);
     }
 
     #[test]
     fn test_integer_numeric_infix_rule() {
-        use std::str::FromStr;
         let rule_int =
             rule! { "int", (reg!(usize, "\\d+")), |a| usize::from_str(&*a.0[0]).unwrap() };
         let rule_add = rule! {
@@ -137,10 +137,51 @@ mod tests {
             (dim!(usize), reg!(usize, "\\*"), dim!(usize)),
             |a,_,b| a.value*b.value
         };
-        let rule_set = RuleSet(vec!(rule_int, rule_add, rule_mul));
+        let rule_set = RuleSet(vec![rule_int, rule_add, rule_mul]);
         let results = rule_set.apply_all("foo: 12 + 42, 12* 42");
-        let values:Vec<_> = results.iter().map(|pn| pn.value).collect();
-        assert_eq!(vec![ 12, 42, 12, 42, 54, 504], values);
+        let values: Vec<_> = results.iter().map(|pn| pn.value).collect();
+        assert_eq!(vec![12, 42, 12, 42, 54, 504], values);
+    }
+
+    #[derive(Copy,Clone,PartialEq,Debug)]
+    enum Value {
+        UI(usize),
+        FP(f32),
+    }
+    impl From<f32> for Value {
+        fn from(f: f32) -> Value {
+            Value::FP(f)
+        }
+    }
+    impl From<usize> for Value {
+        fn from(v: usize) -> Value {
+            Value::UI(v)
+        }
+    }
+    impl AttemptFrom<Value> for f32 {
+        fn attempt_from(v: Value) -> Option<f32> {
+            if let Value::FP(f) = v { Some(f) } else { None }
+        }
+    }
+    impl AttemptFrom<Value> for usize {
+        fn attempt_from(v: Value) -> Option<usize> {
+            if let Value::UI(f) = v { Some(f) } else { None }
+        }
+    }
+
+    #[test]
+    fn test_with_enum_value() {
+        let int = rule! { "int", (reg!(Value, "\\d+")),
+                |a| usize::from_str(&*a.0[0]).unwrap() };
+        let fp = rule! { "fp", (reg!(Value, "\\d+.\\d+")),
+                |a| f32::from_str(&*a.0[0]).unwrap() };
+        let pow = rule! { "pow",
+            (dim!(f32), reg!(Value, "\\^"), dim!(usize)),
+           |a,_,b| a.value.powi(b.value as i32) };
+        let rule_set = RuleSet(vec![int, fp, pow]);
+        let results = rule_set.apply_all("foo: 1.5^2");
+        let values: Vec<_> = results.iter().map(|pn| pn.value).collect();
+        assert_eq!(vec![Value::UI(1), Value::UI(5), Value::UI(2), Value::FP(1.5), Value::FP(2.25)],
+                   values);
     }
 }
-

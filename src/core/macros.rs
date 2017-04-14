@@ -16,4 +16,3 @@ macro_rules! dim {
     ($typ:ty) => ( $crate::core::pattern::AnyNodePattern::<$typ>::new() );
     ($typ:ty, $predicates:expr) => ( $crate::core::pattern::DimensionNodePattern::<$typ,_>::filter($predicates) );
 }
-
