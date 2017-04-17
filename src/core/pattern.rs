@@ -64,9 +64,9 @@ impl<StashValue: Clone> Pattern<Text, StashValue> for TextPattern<StashValue> {
     }
 }
 
-pub type AnyNodePattern<V> = DimensionNodePattern<V, fn(&V) -> bool>;
+pub type AnyNodePattern<V> = FilterNodePattern<V, fn(&V) -> bool>;
 
-pub struct DimensionNodePattern<V, F>
+pub struct FilterNodePattern<V,F>
     where V: Clone,
           F: Fn(&V) -> bool
 {
@@ -76,26 +76,26 @@ pub struct DimensionNodePattern<V, F>
 
 impl<V: Clone> AnyNodePattern<V> {
     pub fn new() -> AnyNodePattern<V> {
-        DimensionNodePattern {
+        FilterNodePattern {
             predicates: vec![],
             _phantom: ::std::marker::PhantomData,
         }
     }
 }
 
-impl<V, F> DimensionNodePattern<V, F>
+impl<V, F> FilterNodePattern<V, F>
     where V: Clone,
           F: Fn(&V) -> bool
 {
-    pub fn filter(predicates: Vec<F>) -> DimensionNodePattern<V, F> {
-        DimensionNodePattern {
+    pub fn filter(predicates: Vec<F>) -> FilterNodePattern<V, F> {
+        FilterNodePattern {
             predicates: predicates,
             _phantom: ::std::marker::PhantomData,
         }
     }
 }
 
-impl<StashValue, V, F> Pattern<ParsedNode<V>, StashValue> for DimensionNodePattern<V, F>
+impl<StashValue, V, F> Pattern<ParsedNode<V>, StashValue> for FilterNodePattern<V, F>
     where StashValue: Clone,
           V: AttemptFrom<StashValue> + Clone,
           F: Fn(&V) -> bool
@@ -116,4 +116,14 @@ impl<StashValue, V, F> Pattern<ParsedNode<V>, StashValue> for DimensionNodePatte
             })
             .collect()
     }
+}
+
+pub struct FlatMapNodePattern<A, B, F>
+    where F: Fn(&A) -> B,
+          A: Clone, 
+          B: Clone,
+    {
+
+    transform: F,
+    _phantom: ::std::marker::PhantomData<A, B>
 }
