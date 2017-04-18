@@ -9,6 +9,7 @@ use core::rule::rule_errors::*;
 pub enum Dimension {
     Number(NumberValue),
     Ordinal(OrdinalValue),
+    Temperature(TemperatureValue),
 }
 
 #[derive(Debug,PartialEq,Copy,Clone)]
@@ -162,5 +163,29 @@ impl AttemptFrom<Dimension> for NumberValue {
 impl From<NumberValue> for Dimension {
     fn from(v: NumberValue) -> Dimension {
         Dimension::Number(v)
+    }
+}
+
+#[derive(Debug,PartialEq,Clone)]
+pub struct TemperatureValue {
+    value: f64,
+    unit: Option<&'static str>,
+    latent: bool
+
+}
+
+impl AttemptFrom<Dimension> for TemperatureValue {
+    fn attempt_from(v: Dimension) -> Option<TemperatureValue> {
+        if let Dimension::Temperature(value) = v {
+            Some(value)
+        } else {
+            None
+        }
+    }
+}
+
+impl From<TemperatureValue> for Dimension {
+    fn from(v: TemperatureValue) -> Dimension {
+        Dimension::Temperature(v)
     }
 }

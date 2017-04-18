@@ -26,3 +26,7 @@ macro_rules! ordinal_check {
 macro_rules! regex {
     ($pattern:expr) => ( reg!(Dimension, $pattern))
 }
+
+macro_rules! temperature_check {
+    () => ( $crate::core::pattern::AnyNodePattern::<TemperatureValue>::new() );
+}

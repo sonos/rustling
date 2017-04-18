@@ -3,7 +3,33 @@ use errors::*;
 use ontology::*;
 use ontology::Precision::*;
 
-fn rules<'a>() -> Result<RuleSet<'a, Dimension>> {
+fn rules_temperature<'a>() -> Result<RuleSet<'a, Dimension>> {
+    Ok(RuleSet(vec![
+        rule! { 
+            "number as temp", 
+            (number_check!()), 
+            |a| Ok(TemperatureValue { value: a.value.value(), unit: None, latent: true}) 
+        },
+        rule! {
+            "<latent temp> degrees",
+            (temperature_check!(), regex!(r#"(deg(ree?)?s?\.?)|°"#)),
+            |a, _| Ok(TemperatureValue { value: a.value.value, unit: Some("degree"), latent: false})
+        },
+        rule! {
+            "<temp> Celcius",
+            (temperature_check!(), regex!(r#"c(el[cs]?(ius)?)?\.?"#)),
+            |a, _| Ok(TemperatureValue { value: a.value.value, unit: Some("celsius"), latent: false})
+        },
+        rule! {
+            "<temp> Fahrenheit",
+            (temperature_check!(), regex!(r#"f(ah?rh?eh?n(h?eit)?)?\.?"#)),
+            |a, _| Ok(TemperatureValue { value: a.value.value, unit: Some("fahrenheit"), latent: false})
+        },
+    
+    ]))
+}
+
+fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
     Ok(RuleSet(vec![
         rule! { "ten", (regex!(r#"ten"#)), |_| IntegerValue::new_with_grain(10, 1) },
         rule! { "single", (regex!(r#"single"#)), |_| IntegerValue::new_with_grain(1, 1) },
