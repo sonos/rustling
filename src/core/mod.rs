@@ -1,7 +1,7 @@
 #[macro_use]
-mod macros;
-mod pattern;
-mod rule;
+pub mod macros;
+pub mod pattern;
+pub mod rule;
 
 use core::rule::Rule;
 use core::pattern::Range;
@@ -111,8 +111,8 @@ mod tests {
         };
         let rule_compo = rule! {
             "number thousands",
-            (   dim!(usize, vec!(|a:&usize| *a > 1 && *a < 99)),
-                dim!(usize, vec!(|a:&usize| *a == 1000))),
+            (   dim!(usize, vec!(Box::new(|a:&usize| *a > 1 && *a < 99))),
+                dim!(usize, vec!(Box::new(|a:&usize| *a == 1000)))),
             |a,_| a.value*1000
         };
         let rule_set = RuleSet(vec![rule, rule_compo, rule_thousand]);
