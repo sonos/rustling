@@ -65,13 +65,12 @@ impl<'a, StashValue: Clone> Pattern<'a, Text<'a>, StashValue> for TextPattern<St
     }
 }
 
-pub type AnyNodePattern<V> = FilterNodePattern<V, fn(&V) -> bool>;
+pub type AnyNodePattern<V> = FilterNodePattern<V>;
 
-pub struct FilterNodePattern<V,F>
-    where V: Clone,
-          F: Fn(&V) -> bool
+pub struct FilterNodePattern<V>
+    where V: Clone
 {
-    predicates: Vec<F>,
+    predicates: Vec<Box<Fn(&V) -> bool>>,
     _phantom: ::std::marker::PhantomData<V>,
 }
 
@@ -84,11 +83,10 @@ impl<V: Clone> AnyNodePattern<V> {
     }
 }
 
-impl<V, F> FilterNodePattern<V, F>
-    where V: Clone,
-          F: Fn(&V) -> bool
+impl<V> FilterNodePattern<V>
+    where V: Clone
 {
-    pub fn filter(predicates: Vec<F>) -> FilterNodePattern<V, F> {
+    pub fn filter(predicates: Vec<Box<Fn(&V) -> bool>>) -> FilterNodePattern<V> {
         FilterNodePattern {
             predicates: predicates,
             _phantom: ::std::marker::PhantomData,
@@ -96,25 +94,24 @@ impl<V, F> FilterNodePattern<V, F>
     }
 }
 
-impl<'a, StashValue, V:'a, F> Pattern<'a, ParsedNode<V>, StashValue> for FilterNodePattern<V, F>
+impl<'a, StashValue, V:'a> Pattern<'a, ParsedNode<V>, StashValue> for FilterNodePattern<V>
     where StashValue: Clone,
-          V: AttemptFrom<StashValue> + Clone,
-          F: Fn(&V) -> bool
+          V: AttemptFrom<StashValue> + Clone
 {
     fn predicate(&self, stash: &Stash<StashValue>, _sentence: &'a str) -> Vec<ParsedNode<V>> {
         stash.iter()
             .filter_map(|it| if let Some(v) = V::attempt_from(it.value.clone()) {
-                if self.predicates.iter().all(|predicate| (predicate)(&v)) {
-                    Some(ParsedNode::new(it.root_node.rule_name,
-                                         v,
-                                         it.range(),
-                                         it.root_node.children.clone()))
-                } else {
-                    None
-                }
-            } else {
-                None
-            })
+                            if self.predicates.iter().all(|predicate| (predicate)(&v)) {
+                                Some(ParsedNode::new(it.root_node.rule_name,
+                                                     v,
+                                                     it.range(),
+                                                     it.root_node.children.clone()))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        })
             .collect()
     }
 }
