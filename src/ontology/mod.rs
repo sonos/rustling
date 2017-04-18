@@ -3,6 +3,8 @@ use core::AttemptFrom;
 mod macros;
 pub mod en;
 
+use core::rule::rule_errors::*;
+
 #[derive(Debug,Clone)]
 pub enum Dimension {
     Number(NumberValue),
@@ -36,7 +38,13 @@ pub enum Precision {
     Exact,
 }
 
-#[derive(Debug,PartialEq,Clone)]
+impl Default for Precision {
+    fn default() -> Precision {
+        Precision::Exact
+    }
+}
+
+#[derive(Debug,PartialEq,Clone,Default)]
 pub struct IntegerValue {
     value: i64,
     grain: Option<u8>,
@@ -47,15 +55,11 @@ pub struct IntegerValue {
 }
 
 impl IntegerValue {
-    fn default() -> IntegerValue {
-        IntegerValue {
-            value: 0,
-            grain: None,
-            group: false,
-            prefixed: false,
-            suffixed: false,
-            precision: Precision::Exact,
-        }
+    pub fn new(value:i64) -> RuleResult<IntegerValue> {
+        Ok(IntegerValue { value: value, grain: None, .. IntegerValue::default() })
+    }
+    pub fn new_with_grain(value:i64, grain:u8) -> RuleResult<IntegerValue> {
+        Ok(IntegerValue { value: value, grain: Some(grain), .. IntegerValue::default() })
     }
 }
 
