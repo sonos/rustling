@@ -71,17 +71,14 @@ fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
         rule! {
             "integer (numeric)",
             (regex!(r#"(\d{1,18})"#)),
-            |text_match| {
-                let value: i64 = text_match.0[0].parse().unwrap();
-                IntegerValue::new(value)
-            }
+            |text_match| IntegerValue::new(text_match.0[0].parse()?)
         },
         rule! {
             "integer with thousands separator ,",
             (regex!(r#"(\d{1,3}(,\d\d\d){1,5})"#)),
             |text_match| {
                 let reformatted_string = text_match.0[1].replace(",", "");
-                let value: i64 = reformatted_string.parse().unwrap();
+                let value: i64 = reformatted_string.parse()?;
                 IntegerValue::new(value)
             }
         },
@@ -131,7 +128,7 @@ fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
              "decimal number",
              (regex!(r#"(\d*\.\d+)"#)),
              |text_match| {
-                 let value: f64 = text_match.0[0].parse().unwrap();
+                 let value: f64 = text_match.0[0].parse()?;
                  Ok(FloatValue { value: value, .. FloatValue::default() })
              }
         },
@@ -149,7 +146,7 @@ fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
              (regex!(r#"(\d+(,\d\d\d)+\.\d+)"#)),
              |text_match| {
                  let reformatted_string = text_match.0[1].replace(",", "");
-                 let value: f64 = reformatted_string.parse().unwrap();
+                 let value: f64 = reformatted_string.parse()?;
                  Ok(FloatValue { value: value, .. FloatValue::default() })
              }
         },
@@ -254,7 +251,7 @@ fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
             "ordinal (digits)",
             (regex!(r#""0*(\d+) ?(st|nd|rd|th)""#)),
             |text_match| {
-                let value: i64 = text_match.0[1].parse().unwrap();
+                let value: i64 = text_match.0[1].parse()?;
                 Ok(OrdinalValue { value: value })
             }
         },
