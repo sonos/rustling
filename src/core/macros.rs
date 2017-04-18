@@ -1,13 +1,13 @@
 
 macro_rules! reg {
-    ($typ:ty, $pattern:expr) => ( $crate::core::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $pattern) )
+    ($typ:ty, $pattern:expr) => ( $crate::core::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern)?, $pattern) )
 }
 
 macro_rules! rule {
     ($name:expr, ($a:expr), $f:expr) =>
         { Box::new($crate::core::rule::Rule1::new($name, $a, $f)) };
-    ($name:expr, ($a:expr, $b:expr), $f:expr) =>
-        { Box::new($crate::core::rule::Rule2::new($name, ($a, $b), $f)) };
+    ($name:expr, ($a:expr, $b:expr), $f:expr) => {
+        Box::new($crate::core::rule::Rule2::new($name, ($a, $b), $f)) };
     ($name:expr, ($a:expr, $b:expr, $c:expr), $f:expr) => 
         { Box::new($crate::core::rule::Rule3::new($name, ($a, $b, $c), $f)) };
 }

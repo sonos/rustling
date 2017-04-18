@@ -1,5 +1,7 @@
-use core::*;
 use smallvec::SmallVec;
+
+use errors::*;
+use core::*;
 
 pub type Range = (usize, usize);
 
@@ -36,7 +38,7 @@ impl<'a> Match<'a> for Text<'a> {
 }
 
 pub trait Pattern<'a, M: Match<'a> + 'a, StashValue: Clone> {
-    fn predicate(&self, stash: &Stash<StashValue>, sentence: &'a str) -> Vec<M>;
+    fn predicate(&self, stash: &Stash<StashValue>, sentence: &'a str) -> Result<Vec<M>>;
 }
 
 
@@ -51,15 +53,31 @@ impl<StashValue: Clone> TextPattern<StashValue> {
 }
 
 impl<'a, StashValue: Clone> Pattern<'a, Text<'a>, StashValue> for TextPattern<StashValue> {
-    fn predicate(&self, _stash: &Stash<StashValue>, sentence: &'a str) -> Vec<Text<'a>> {
+    fn predicate(&self, _stash: &Stash<StashValue>, sentence: &'a str) -> Result<Vec<Text<'a>>> {
         self.0
             .captures_iter(&sentence)
             .map(|cap| {
-                let full = cap.get(0).unwrap();
+                let full = cap.get(0)
+                    .ok_or_else(|| {
+                        format!("No capture for regexp {} in rule {} for sentence: {}",
+                                self.0,
+                                self.1,
+                                sentence)
+                    })?;
                 let full_range = (full.start(), full.end());
-                Text(cap.iter().map(|m| m.unwrap().as_str()).collect(),
-                     full_range,
-                     self.1)
+                let mut groups = SmallVec::new();
+                for (ix, group) in cap.iter().enumerate() {
+                    groups.push(group.ok_or_else(|| {
+                            format!("No capture for regexp {} in rule {}, group number {} in \
+                                     capture: {}",
+                                    self.0,
+                                    self.1,
+                                    ix,
+                                    full.as_str())
+                        })?
+                        .as_str());
+                }
+                Ok(Text(groups, full_range, self.1))
             })
             .collect()
     }
@@ -98,8 +116,11 @@ impl<'a, StashValue, V: 'a> Pattern<'a, ParsedNode<V>, StashValue> for FilterNod
     where StashValue: Clone,
           V: AttemptFrom<StashValue> + Clone
 {
-    fn predicate(&self, stash: &Stash<StashValue>, _sentence: &'a str) -> Vec<ParsedNode<V>> {
-        stash.iter()
+    fn predicate(&self,
+                 stash: &Stash<StashValue>,
+                 _sentence: &'a str)
+                 -> Result<Vec<ParsedNode<V>>> {
+        Ok(stash.iter()
             .filter_map(|it| if let Some(v) = V::attempt_from(it.value.clone()) {
                 if self.predicates.iter().all(|predicate| (predicate)(&v)) {
                     Some(ParsedNode::new(it.root_node.rule_name,
@@ -112,6 +133,6 @@ impl<'a, StashValue, V: 'a> Pattern<'a, ParsedNode<V>, StashValue> for FilterNod
             } else {
                 None
             })
-            .collect()
+            .collect())
     }
 }

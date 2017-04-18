@@ -1,9 +1,10 @@
 use core::*;
+use errors::*;
 use ontology::*;
 use ontology::Precision::*;
 
-fn rules<'a>() -> RuleSet<'a, Dimension> {
-    RuleSet(vec![
+fn rules<'a>() -> Result<RuleSet<'a, Dimension>> {
+    Ok(RuleSet(vec![
         rule! {
             "ten",
             (regex!(r#"ten"#)),
@@ -280,5 +281,5 @@ fn rules<'a>() -> RuleSet<'a, Dimension> {
             ),
             |_, ordinal| ordinal.value
         }
-    ])
+    ]))
 }

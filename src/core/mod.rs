@@ -5,6 +5,7 @@ pub mod rule;
 
 use core::rule::Rule;
 use core::pattern::Range;
+use errors::*;
 
 pub trait AttemptFrom<V>: Sized {
     fn attempt_from(v: V) -> Option<Self>;
@@ -49,27 +50,28 @@ pub type Stash<V> = Vec<ParsedNode<V>>;
 pub struct RuleSet<'a, StashValue: Clone>(pub Vec<Box<Rule<'a, StashValue> + 'a>>);
 
 impl<'a, V: Clone> RuleSet<'a, V> {
-    fn apply_once(&self, stash: &mut Stash<V>, sentence: &'a str) {
-        let produced_nodes: Vec<ParsedNode<V>> = self.0
-            .iter()
-            .flat_map(|rule| rule.apply(stash, sentence).into_iter())
-            .collect();
-        stash.extend(produced_nodes)
+    fn apply_once(&self, stash: &mut Stash<V>, sentence: &'a str) -> Result<()> {
+        let mut produced_nodes = vec!();
+        for rule in &self.0 {
+            produced_nodes.extend(rule.apply(stash, sentence)?);
+        }
+        stash.extend(produced_nodes);
+        Ok(())
     }
 
-    fn apply_all(&self, sentence: &'a str) -> Stash<V> {
+    fn apply_all(&self, sentence: &'a str) -> Result<Stash<V>> {
         let iterations_max = 10;
         let max_stash_size = 600;
         let mut stash = vec![];
         let mut previous_stash_size = 0;
         for _ in 0..iterations_max {
-            self.apply_once(&mut stash, sentence);
+            self.apply_once(&mut stash, sentence)?;
             if stash.len() <= previous_stash_size && stash.len() > max_stash_size {
                 break;
             }
             previous_stash_size = stash.len();
         }
-        stash
+        Ok(stash)
     }
 }
 
@@ -84,6 +86,10 @@ mod tests {
         }
     }
 
+    macro_rules! reg {
+        ($typ:ty, $pattern:expr) => ( $crate::core::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $pattern) )
+    }
+
     #[test]
     fn test_rule_set_application_once() {
         let rule = rule! {
@@ -93,7 +99,7 @@ mod tests {
         };
         let rule_set = RuleSet(vec![rule]);
         let mut stash = vec![];
-        rule_set.apply_once(&mut stash, "foobar: 42");
+        rule_set.apply_once(&mut stash, "foobar: 42").unwrap();
         assert_eq!(1, stash.len());
         assert_eq!(42, stash[0].value);
     }
@@ -122,7 +128,7 @@ mod tests {
     #[test]
     fn test_rule_set_application_all() {
         let rule_set = rules();
-        let output_stash = rule_set.apply_all("foobar: 12 thousands");
+        let output_stash = rule_set.apply_all("foobar: 12 thousands").unwrap();
         assert_eq!(3, output_stash.len());
         let values: Vec<_> = output_stash.iter().map(|pn| pn.value).collect();
         assert_eq!(vec![12, 1000, 12000], values);
@@ -143,7 +149,7 @@ mod tests {
             |a,_,b| a.value*b.value
         };
         let rule_set = RuleSet(vec![rule_int, rule_add, rule_mul]);
-        let results = rule_set.apply_all("foo: 12 + 42, 12* 42");
+        let results = rule_set.apply_all("foo: 12 + 42, 12* 42").unwrap();
         let values: Vec<_> = results.iter().map(|pn| pn.value).collect();
         assert_eq!(vec![12, 42, 12, 42, 54, 504], values);
     }
@@ -184,7 +190,7 @@ mod tests {
             (dim!(f32), reg!(Value, "\\^"), dim!(usize)),
            |a,_,b| a.value.powi(b.value as i32) };
         let rule_set = RuleSet(vec![int, fp, pow]);
-        let results = rule_set.apply_all("foo: 1.5^2");
+        let results = rule_set.apply_all("foo: 1.5^2").unwrap();
         let values: Vec<_> = results.iter().map(|pn| pn.value).collect();
         assert_eq!(vec![Value::UI(1), Value::UI(5), Value::UI(2), Value::FP(1.5), Value::FP(2.25)],
                    values);
