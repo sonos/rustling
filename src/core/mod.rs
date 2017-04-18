@@ -46,10 +46,10 @@ impl<V: Clone> ParsedNode<V> {
 
 pub type Stash<V> = Vec<ParsedNode<V>>;
 
-struct RuleSet<StashValue: Clone>(Vec<Box<Rule<StashValue>>>);
+struct RuleSet<'a, StashValue: Clone>(Vec<Box<Rule<'a, StashValue>>>);
 
-impl<V: Clone> RuleSet<V> {
-    fn apply_once(&self, stash: &mut Stash<V>, sentence: &str) {
+impl<'a, V: Clone> RuleSet<'a, V> {
+    fn apply_once(&self, stash: &mut Stash<V>, sentence: &'a str) {
         let produced_nodes: Vec<ParsedNode<V>> = self.0
             .iter()
             .flat_map(|rule| rule.apply(stash, sentence).into_iter())
@@ -57,7 +57,7 @@ impl<V: Clone> RuleSet<V> {
         stash.extend(produced_nodes)
     }
 
-    fn apply_all(&self, sentence: &str) -> Stash<V> {
+    fn apply_all(&self, sentence: &'a str) -> Stash<V> {
         let iterations_max = 10;
         let max_stash_size = 600;
         let mut stash = vec![];
