@@ -7,12 +7,16 @@ extern crate smallvec;
 
 #[macro_use]
 pub mod core;
-pub mod ontology;
+//pub mod ontology;
 
 pub mod errors {
     error_chain! {
         foreign_links {
             Regex(::regex::Error);
+        }
+
+        errors {
+            ProductionRuleError(t: String)
         }
     }
 }

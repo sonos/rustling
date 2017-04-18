@@ -95,7 +95,7 @@ mod tests {
         let rule = rule! {
             "integer (numeric)",
             (reg!(usize, r#"(\d{1,18})"#)),
-            |text_match| text_match.0[0].parse::<usize>().unwrap()
+            |text_match| Ok(text_match.0[0].parse::<usize>()?)
         };
         let rule_set = RuleSet(vec![rule]);
         let mut stash = vec![];
@@ -108,18 +108,18 @@ mod tests {
         let rule = rule! {
             "integer (numeric)",
             (reg!(usize, r#"(\d{1,18})"#)),
-            |text_match| text_match.0[0].parse::<usize>().unwrap()
+            |text_match| Ok(text_match.0[0].parse::<usize>()?)
         };
         let rule_thousand = rule! {
             "integer (thousand)",
             (reg!(usize, "thousands?")),
-            |_| 1000usize
+            |_| Ok(1000usize)
         };
         let rule_compo = rule! {
             "number thousands",
             (   dim!(usize, vec!(Box::new(|a:&usize| *a > 1 && *a < 99))),
                 dim!(usize, vec!(Box::new(|a:&usize| *a == 1000)))),
-            |a,_| a.value*1000
+            |a,_| Ok(a.value*1000)
         };
         let rule_set = RuleSet(vec![rule, rule_compo, rule_thousand]);
         rule_set
@@ -137,16 +137,16 @@ mod tests {
     #[test]
     fn test_integer_numeric_infix_rule() {
         let rule_int =
-            rule! { "int", (reg!(usize, "\\d+")), |a| usize::from_str(&*a.0[0]).unwrap() };
+            rule! { "int", (reg!(usize, "\\d+")), |a| Ok(usize::from_str(&*a.0[0])?) };
         let rule_add = rule! {
             "add",
             (dim!(usize), reg!(usize, "\\+"), dim!(usize)),
-            |a,_,b| a.value+b.value
+            |a,_,b| Ok(a.value+b.value)
         };
         let rule_mul = rule! {
             "mul",
             (dim!(usize), reg!(usize, "\\*"), dim!(usize)),
-            |a,_,b| a.value*b.value
+            |a,_,b| Ok(a.value*b.value)
         };
         let rule_set = RuleSet(vec![rule_int, rule_add, rule_mul]);
         let results = rule_set.apply_all("foo: 12 + 42, 12* 42").unwrap();
@@ -183,12 +183,12 @@ mod tests {
     #[test]
     fn test_with_enum_value() {
         let int = rule! { "int", (reg!(Value, "\\d+")),
-                |a| usize::from_str(&*a.0[0]).unwrap() };
+                |a| Ok(usize::from_str(&*a.0[0])?) };
         let fp = rule! { "fp", (reg!(Value, "\\d+.\\d+")),
-                |a| f32::from_str(&*a.0[0]).unwrap() };
+                |a| Ok(f32::from_str(&*a.0[0])?) };
         let pow = rule! { "pow",
             (dim!(f32), reg!(Value, "\\^"), dim!(usize)),
-           |a,_,b| a.value.powi(b.value as i32) };
+           |a,_,b| Ok(a.value.powi(b.value as i32)) };
         let rule_set = RuleSet(vec![int, fp, pow]);
         let results = rule_set.apply_all("foo: 1.5^2").unwrap();
         let values: Vec<_> = results.iter().map(|pn| pn.value).collect();
