@@ -14,7 +14,7 @@ macro_rules! integer_filter {
 }
 
 macro_rules! number_check {
-	() => ( $crate::core::pattern::AnyNodePattern::<NumberValue>::new() );
+    () => ( $crate::core::pattern::AnyNodePattern::<NumberValue>::new() );
     ($predicate:expr) => ( $crate::core::pattern::FilterNodePattern::<NumberValue>::filter(vec![b!($predicate)]) );
 }
 
