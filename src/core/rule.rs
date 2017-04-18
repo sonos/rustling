@@ -285,7 +285,7 @@ mod tests {
     fn test_integer_numeric_compo_en_rule() {
         let rule_consec = rule! {
             "2 consecutive ints",
-            (dim!(usize), dim!(usize, vec![|integer: &usize| *integer == 10])),
+            (dim!(usize), dim!(usize, vec![Box::new(|integer: &usize| *integer == 10)])),
             |a,b| a.value+b.value
         };
         let stash: Stash<usize> = vec![ParsedNode::new("ten", 10, (8, 11), vec![]),
