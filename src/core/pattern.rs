@@ -1,4 +1,5 @@
 use core::*;
+use smallvec::SmallVec;
 
 pub type Range = (usize, usize);
 
@@ -18,7 +19,7 @@ impl<'a, V: Clone> Match<'a> for ParsedNode<V> {
 }
 
 #[derive(Clone,Debug,PartialEq)]
-pub struct Text<'a>(pub Vec<&'a str>, pub Range, pub &'static str);
+pub struct Text<'a>(pub SmallVec<[&'a str;4]>, pub Range, pub &'static str);
 
 impl<'a> Match<'a> for Text<'a> {
     fn range(&self) -> Range {

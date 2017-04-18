@@ -4,4 +4,5 @@ version = "0.1.0"
 authors = ["hdlj <hubert.delajonquiere@snips.net>"]
 
 [dependencies]
-regex = "*"
+regex = "0.2"
+smallvec = "0.3"

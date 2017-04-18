@@ -253,13 +253,22 @@ impl<'a, A, PA, B, PB, C, PC, V, StashValue, F> Rule3<'a, A, B, C, PA, PB, PC, V
 mod tests {
     use core::rule::*;
 
+    macro_rules! svec {
+        ($($item:expr),*) => { {
+            let mut v = ::smallvec::SmallVec::new();
+            $( v.push($item); )*
+            v
+        }
+        }
+    }
+
     #[test]
     fn test_integer_numeric_en_rule() {
         let rule = rule! { "ten", (reg!(usize, "ten")), |_| 10usize };
-        assert_eq!(vec![Text(vec!["ten".into()], (8, 11), "ten")],
+        assert_eq!(vec![Text(svec!["ten".into()], (8, 11), "ten")],
                    rule.matches(&vec![], "foobar: ten"));
-        assert_eq!(vec![Text(vec!["ten".into()], (8, 11), "ten"),
-                        Text(vec!["ten".into()], (12, 15), "ten")],
+        assert_eq!(vec![Text(svec!["ten".into()], (8, 11), "ten"),
+                        Text(svec!["ten".into()], (12, 15), "ten")],
                    rule.matches(&vec![], "foobar: ten ten"));
         assert_eq!(vec![ParsedNode::new("ten",
                                         10,
