@@ -117,13 +117,3 @@ impl<StashValue, V, F> Pattern<ParsedNode<V>, StashValue> for FilterNodePattern<
             .collect()
     }
 }
-
-pub struct FlatMapNodePattern<A, B, F>
-    where F: Fn(&A) -> B,
-          A: Clone, 
-          B: Clone,
-    {
-
-    transform: F,
-    _phantom: ::std::marker::PhantomData<A, B>
-}
