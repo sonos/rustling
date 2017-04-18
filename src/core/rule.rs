@@ -72,14 +72,14 @@ fn adjacent<'a, A: Match<'a>, B: Match<'a>>(a: &A, b: &B, sentence: &'a str) -> 
     sentence[a.range().1..b.range().0].chars().all(|c| c.is_whitespace() || c == '-')
 }
 
-pub struct Rule2<'a, A:'a, B:'a, PA, PB, V, StashValue, F>
+pub struct Rule2<'a, A: 'a, B: 'a, PA, PB, V, StashValue, F>
     where V: Clone,
           StashValue: From<V> + Clone,
           F: Fn(&A, &B) -> V,
           PA: Pattern<'a, A, StashValue>,
           A: Match<'a>,
           PB: Pattern<'a, B, StashValue>,
-          B: Match<'a>,
+          B: Match<'a>
 {
     name: &'static str,
     pattern: (PA, PB),
@@ -87,7 +87,8 @@ pub struct Rule2<'a, A:'a, B:'a, PA, PB, V, StashValue, F>
     _phantom: ::std::marker::PhantomData<(V, A, B, StashValue, &'a ())>,
 }
 
-impl<'a, A, PA, B, PB, V, StashValue, F> Rule<'a, StashValue> for Rule2<'a, A, B, PA, PB, V, StashValue, F>
+impl<'a, A, PA, B, PB, V, StashValue, F> Rule<'a, StashValue>
+    for Rule2<'a, A, B, PA, PB, V, StashValue, F>
     where V: Clone,
           StashValue: From<V> + Clone,
           F: Fn(&A, &B) -> V,
@@ -154,7 +155,7 @@ impl<'a, A, PA, B, PB, V, StashValue, F> Rule2<'a, A, B, PA, PB, V, StashValue, 
     }
 }
 
-pub struct Rule3<'a, A:'a , B: 'a , C: 'a, PA, PB, PC, V, StashValue, F>
+pub struct Rule3<'a, A: 'a, B: 'a, C: 'a, PA, PB, PC, V, StashValue, F>
     where V: Clone,
           StashValue: From<V> + Clone,
           F: Fn(&'a A, &'a B, &'a C) -> V,
@@ -163,7 +164,7 @@ pub struct Rule3<'a, A:'a , B: 'a , C: 'a, PA, PB, PC, V, StashValue, F>
           PB: Pattern<'a, B, StashValue>,
           B: Match<'a>,
           PC: Pattern<'a, C, StashValue>,
-          C: Match<'a>,
+          C: Match<'a>
 {
     name: &'static str,
     pattern: (PA, PB, PC),
@@ -181,7 +182,7 @@ impl<'a, A, PA, B, PB, C, PC, V, StashValue, F> Rule<'a, StashValue>
           PB: Pattern<'a, B, StashValue>,
           B: Match<'a>,
           PC: Pattern<'a, C, StashValue>,
-          C: Match<'a>,
+          C: Match<'a>
 {
     fn apply(&self, stash: &Stash<StashValue>, sentence: &'a str) -> Vec<ParsedNode<StashValue>> {
         let matches = self.matches(&stash, sentence);
@@ -214,7 +215,7 @@ impl<'a, A, PA, B, PB, C, PC, V, StashValue, F> Rule3<'a, A, B, C, PA, PB, PC, V
           PB: Pattern<'a, B, StashValue>,
           B: Match<'a>,
           PC: Pattern<'a, C, StashValue>,
-          C: Match<'a>,
+          C: Match<'a>
 {
     pub fn new(name: &'static str,
                pat: (PA, PB, PC),

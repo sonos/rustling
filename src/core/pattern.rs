@@ -19,7 +19,7 @@ impl<'a, V: Clone> Match<'a> for ParsedNode<V> {
 }
 
 #[derive(Clone,Debug,PartialEq)]
-pub struct Text<'a>(pub SmallVec<[&'a str;4]>, pub Range, pub &'static str);
+pub struct Text<'a>(pub SmallVec<[&'a str; 4]>, pub Range, pub &'static str);
 
 impl<'a> Match<'a> for Text<'a> {
     fn range(&self) -> Range {
@@ -94,24 +94,24 @@ impl<V> FilterNodePattern<V>
     }
 }
 
-impl<'a, StashValue, V:'a> Pattern<'a, ParsedNode<V>, StashValue> for FilterNodePattern<V>
+impl<'a, StashValue, V: 'a> Pattern<'a, ParsedNode<V>, StashValue> for FilterNodePattern<V>
     where StashValue: Clone,
           V: AttemptFrom<StashValue> + Clone
 {
     fn predicate(&self, stash: &Stash<StashValue>, _sentence: &'a str) -> Vec<ParsedNode<V>> {
         stash.iter()
             .filter_map(|it| if let Some(v) = V::attempt_from(it.value.clone()) {
-                            if self.predicates.iter().all(|predicate| (predicate)(&v)) {
-                                Some(ParsedNode::new(it.root_node.rule_name,
-                                                     v,
-                                                     it.range(),
-                                                     it.root_node.children.clone()))
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        })
+                if self.predicates.iter().all(|predicate| (predicate)(&v)) {
+                    Some(ParsedNode::new(it.root_node.rule_name,
+                                         v,
+                                         it.range(),
+                                         it.root_node.children.clone()))
+                } else {
+                    None
+                }
+            } else {
+                None
+            })
             .collect()
     }
 }

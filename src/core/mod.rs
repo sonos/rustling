@@ -46,7 +46,7 @@ impl<V: Clone> ParsedNode<V> {
 
 pub type Stash<V> = Vec<ParsedNode<V>>;
 
-pub struct RuleSet<'a, StashValue: Clone>(pub Vec<Box<Rule<'a, StashValue> + 'a >>);
+pub struct RuleSet<'a, StashValue: Clone>(pub Vec<Box<Rule<'a, StashValue> + 'a>>);
 
 impl<'a, V: Clone> RuleSet<'a, V> {
     fn apply_once(&self, stash: &mut Stash<V>, sentence: &'a str) {
