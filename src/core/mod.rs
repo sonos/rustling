@@ -46,7 +46,7 @@ impl<V: Clone> ParsedNode<V> {
 
 pub type Stash<V> = Vec<ParsedNode<V>>;
 
-struct RuleSet<'a, StashValue: Clone>(Vec<Box<Rule<'a, StashValue>>>);
+struct RuleSet<'a, StashValue: Clone>(Vec<Box<Rule<'a, StashValue> + 'a >>);
 
 impl<'a, V: Clone> RuleSet<'a, V> {
     fn apply_once(&self, stash: &mut Stash<V>, sentence: &'a str) {
@@ -98,8 +98,7 @@ mod tests {
         assert_eq!(42, stash[0].value);
     }
 
-    #[test]
-    fn test_rule_set_application_all() {
+    fn rules<'a>() -> RuleSet<'a, usize> {
         let rule = rule! {
             "integer (numeric)",
             (reg!(usize, r#"(\d{1,18})"#)),
@@ -117,6 +116,12 @@ mod tests {
             |a,_| a.value*1000
         };
         let rule_set = RuleSet(vec![rule, rule_compo, rule_thousand]);
+        rule_set
+    }
+
+    #[test]
+    fn test_rule_set_application_all() {
+        let rule_set = rules();
         let output_stash = rule_set.apply_all("foobar: 12 thousands");
         assert_eq!(3, output_stash.len());
         let values: Vec<_> = output_stash.iter().map(|pn| pn.value).collect();
