@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate duckling_core as core;
+
 use core::AttemptFrom;
 #[macro_use]
 mod macros;

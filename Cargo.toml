@@ -1,9 +1,2 @@
-[package]
-name = "duckling"
-version = "0.1.0"
-authors = ["hdlj <hubert.delajonquiere@snips.net>"]
-
-[dependencies]
-regex = "0.2"
-smallvec = "0.3"
-error-chain = "0.10"
+[workspace]
+members = ["core", "ontology"]

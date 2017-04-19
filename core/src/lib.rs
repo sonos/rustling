@@ -1,11 +1,28 @@
 #[macro_use]
+extern crate error_chain;
+pub extern crate regex;
+extern crate smallvec;
+
+#[macro_use]
 pub mod macros;
 pub mod pattern;
 pub mod rule;
 
-use core::rule::Rule;
-use core::pattern::Range;
+use rule::Rule;
+use pattern::Range;
 use errors::*;
+
+pub mod errors {
+    error_chain! {
+        foreign_links {
+            Regex(::regex::Error);
+        }
+
+        errors {
+            ProductionRuleError(t: String)
+        }
+    }
+}
 
 pub trait AttemptFrom<V>: Sized {
     fn attempt_from(v: V) -> Option<Self>;
@@ -59,7 +76,7 @@ impl<'a, V: Clone> RuleSet<'a, V> {
         Ok(())
     }
 
-    fn apply_all(&self, sentence: &'a str) -> Result<Stash<V>> {
+    pub fn apply_all(&self, sentence: &'a str) -> Result<Stash<V>> {
         let iterations_max = 10;
         let max_stash_size = 600;
         let mut stash = vec![];
@@ -78,7 +95,7 @@ impl<'a, V: Clone> RuleSet<'a, V> {
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
-    use core::*;
+    use ::*;
 
     impl AttemptFrom<usize> for usize {
         fn attempt_from(v: usize) -> Option<usize> {
@@ -87,7 +104,7 @@ mod tests {
     }
 
     macro_rules! reg {
-        ($typ:ty, $pattern:expr) => ( $crate::core::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $pattern) )
+        ($typ:ty, $pattern:expr) => ( $crate::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $pattern) )
     }
 
     #[test]

@@ -1,7 +1,7 @@
-use core::*;
-use core::pattern::*;
+use ::*;
+use pattern::*;
 use errors::*;
-use core::rule::rule_errors::*;
+use rule::rule_errors::*;
 
 pub mod rule_errors {
     error_chain! {
@@ -294,7 +294,7 @@ impl<'a, A, PA, B, PB, C, PC, V, StashValue, F> Rule3<'a, A, B, C, PA, PB, PC, V
 
 #[cfg(test)]
 mod tests {
-    use core::rule::*;
+    use rule::*;
 
     macro_rules! svec {
         ($($item:expr),*) => { {
@@ -306,7 +306,7 @@ mod tests {
     }
 
     macro_rules! reg {
-        ($typ:ty, $pattern:expr) => ( $crate::core::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $pattern) )
+        ($typ:ty, $pattern:expr) => ( $crate::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $pattern) )
     }
 
     #[test]

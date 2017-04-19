@@ -1,7 +1,7 @@
 use core::*;
-use errors::*;
-use ontology::*;
-use ontology::Precision::*;
+use core::errors::*;
+use ::*;
+use Precision::*;
 
 fn rules_temperature<'a>() -> Result<RuleSet<'a, Dimension>> {
     Ok(RuleSet(vec![

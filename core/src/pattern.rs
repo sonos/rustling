@@ -1,7 +1,7 @@
 use smallvec::SmallVec;
 
 use errors::*;
-use core::*;
+use ::*;
 
 pub type Range = (usize, usize);
 
