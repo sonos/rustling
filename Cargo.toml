@@ -1,2 +1,2 @@
 [workspace]
-members = ["core", "ontology"]
+members = ["core", "ontology", "ml"]

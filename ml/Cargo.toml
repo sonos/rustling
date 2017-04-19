@@ -1,9 +1,7 @@
 [package]
-name = "duckling-core"
+name = "duckling-ml"
 version = "0.1.0"
 authors = ["hdlj <hubert.delajonquiere@snips.net>", "Mathieu Poumeyrol <kali@zoy.org>"]
 
 [dependencies]
-regex = "0.2"
-smallvec = "0.3"
 error-chain = "0.10"
