@@ -15,28 +15,28 @@ pub mod errors {
     }
 }
 
-trait ClassifierId: Eq + Hash + Clone + Debug {}
-trait ClassId: Eq + Hash + Clone + Debug {}
-trait Feature: Eq + Hash + Clone + Debug {}
+pub trait ClassifierId: Eq + Hash + Clone + Debug {}
+pub trait ClassId: Eq + Hash + Clone + Debug {}
+pub trait Feature: Eq + Hash + Clone + Debug {}
 
-struct Input<Id: ClassifierId, Feat: Feature> {
-    classifier_id: Id,
-    features: Vec<Feat>,
-    children: Vec<Input<Id, Feat>>,
+pub struct Input<Id: ClassifierId, Feat: Feature> {
+    pub classifier_id: Id,
+    pub features: Vec<Feat>,
+    pub children: Vec<Input<Id, Feat>>,
 }
 
 #[derive(PartialEq,Debug,Clone)]
-struct Model<Id: ClassifierId, Class: ClassId, Feat: Feature> {
+pub struct Model<Id: ClassifierId, Class: ClassId, Feat: Feature> {
     pub classifiers: HashMap<Id, Classifier<Class, Feat>>,
 }
 
 #[derive(PartialEq,Debug,Clone)]
-struct Classifier<Id: ClassId, Feat: Feature> {
+pub struct Classifier<Id: ClassId, Feat: Feature> {
     pub classes: HashMap<Id, ClassInfo<Feat>>,
 }
 
 #[derive(PartialEq,Debug,Clone)]
-struct ClassInfo<Feat: Feature> {
+pub struct ClassInfo<Feat: Feature> {
     pub example_count: usize,
     pub unk_probalog: f32,
     pub class_probalog: f32,
