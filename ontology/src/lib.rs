@@ -1,14 +1,16 @@
 #[macro_use]
 extern crate duckling_core as core;
+extern crate duckling_ml as ml;
 
 use core::AttemptFrom;
 #[macro_use]
 mod macros;
 pub mod en;
+pub mod parser;
 
 use core::rule::rule_errors::*;
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone, PartialEq)]
 pub enum Dimension {
     Number(NumberValue),
     Ordinal(OrdinalValue),
@@ -95,7 +97,7 @@ impl AttemptFrom<Dimension> for IntegerValue {
 
 #[derive(Debug,PartialEq,Clone)]
 pub struct FloatValue {
-    value: f64,
+    value: f32,
     prefixed: bool,
     suffixed: bool,
     precision: Precision,
@@ -131,24 +133,24 @@ pub enum NumberValue {
 }
 
 impl NumberValue {
-    fn prefixed(&self) -> bool {
+    pub fn prefixed(&self) -> bool {
         match self {
             &NumberValue::Float(ref v) => v.prefixed,
             &NumberValue::Integer(ref v) => v.prefixed,
         }
     }
 
-    fn suffixed(&self) -> bool {
+    pub fn suffixed(&self) -> bool {
         match self {
             &NumberValue::Float(ref v) => v.suffixed,
             &NumberValue::Integer(ref v) => v.suffixed,
         }
     }
 
-    fn value(&self) -> f64 {
+    pub fn value(&self) -> f32 {
         match self {
             &NumberValue::Float(ref v) => v.value,
-            &NumberValue::Integer(ref v) => v.value as f64,
+            &NumberValue::Integer(ref v) => v.value as f32,
         }
     }
 }
@@ -171,7 +173,7 @@ impl From<NumberValue> for Dimension {
 
 #[derive(Debug,PartialEq,Clone)]
 pub struct TemperatureValue {
-    value: f64,
+    value: f32,
     unit: Option<&'static str>,
     latent: bool
 
