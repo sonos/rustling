@@ -6,6 +6,7 @@ extern crate duckling_ml as ml;
 use core::AttemptFrom;
 #[macro_use]
 mod macros;
+mod helpers;
 pub mod en;
 pub mod parser;
 
@@ -146,6 +147,13 @@ impl NumberValue {
         match self {
             &NumberValue::Float(ref v) => v.value,
             &NumberValue::Integer(ref v) => v.value as f32,
+        }
+    }
+
+    pub fn grain(&self) -> Option<u8> {
+        match self {
+            &NumberValue::Float(_) => None,
+            &NumberValue::Integer(ref v) => v.grain
         }
     }
 }

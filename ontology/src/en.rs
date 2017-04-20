@@ -2,6 +2,7 @@ use core::*;
 use core::errors::*;
 use ::*;
 use Precision::*;
+use helpers;
 
 pub fn rules_temperature<'a>() -> Result<RuleSet<'a, Dimension>> {
     Ok(RuleSet(vec![
@@ -31,6 +32,58 @@ pub fn rules_temperature<'a>() -> Result<RuleSet<'a, Dimension>> {
 
 pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
     Ok(RuleSet(vec![
+        rule! {
+            "intersect (with and)",
+            (
+                number_check!(|number: &NumberValue| !number.grain().unwrap_or(0) > 1),
+                regex!(r#"and"#),
+                number_check!()
+            ),
+            |a, _, b| helpers::compose_numbers(&a.value, &b.value)
+        },
+        rule! {
+            "intersect",
+            (
+                number_check!(|number: &NumberValue| !number.grain().unwrap_or(0) > 1),
+                number_check!()
+            ),
+            |a, b| helpers::compose_numbers(&a.value, &b.value)
+        },
+        rule! { 
+            "integer (0..19)", 
+            (regex!(r#"(none|zilch|naught|nought|nil|zero|one|two|three|fourteen|four|five|sixteen|six|seventeen|seven|eighteen|eight|nineteen|nine|eleven|twelve|thirteen|fifteen)"#)),
+            |text_match| {
+                let value = match text_match.0[1].as_ref()  {
+                    "none" => 0, 
+                    "zilch" => 0, 
+                    "naught" => 0, 
+                    "nought" => 0, 
+                    "nil" => 0, 
+                    "zero" => 0,
+                    "one" => 1, 
+                    "two" => 2, 
+                    "three" => 3, 
+                    "four" => 4, 
+                    "five" => 5,
+                    "six" => 6, 
+                    "seven" => 7, 
+                    "eight" => 8,
+                    "nine" => 9, 
+                    "ten" => 10, 
+                    "eleven" => 11,
+                    "twelve" => 12,
+                    "thirteen" => 13,
+                    "fourteen" => 14,
+                    "fifteen" => 15,
+                    "sixteen" => 16,
+                    "seventeen" => 17, 
+                    "eighteen" => 18, 
+                    "nineteen" => 19,
+                    _ => panic!("Unknow match"),
+                };
+                IntegerValue::new_with_grain(value, 1) 
+            }
+        },
         rule! { "ten", (regex!(r#"ten"#)), |_| IntegerValue::new_with_grain(10, 1) },
         rule! { "single", (regex!(r#"single"#)), |_| IntegerValue::new_with_grain(1, 1) },
         rule! { "a pair", (regex!(r#"a pair( of)?"#)), |_| IntegerValue::new_with_grain(2, 1) },

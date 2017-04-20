@@ -13,6 +13,10 @@ pub mod rule_errors {
             NumParseInt(::std::num::ParseIntError);
             NumParseFloat(::std::num::ParseFloatError);
         }
+
+        errors {
+            InvalidNumber(t: String)
+        }
     }
 }
 
