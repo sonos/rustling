@@ -140,7 +140,8 @@ mod tests {
     use super::*;
 
     macro_rules! hmap(
-        { $($key:expr => $value:expr),*} => {
+        { } => { ::std::collections::HashMap::new() };
+        { $($key:expr => $value:expr),+} => {
             {
                 let mut m = ::std::collections::HashMap::new();
                 $( m.insert($key, $value); )*
