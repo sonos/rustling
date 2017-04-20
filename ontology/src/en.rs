@@ -3,7 +3,7 @@ use core::errors::*;
 use ::*;
 use Precision::*;
 
-fn rules_temperature<'a>() -> Result<RuleSet<'a, Dimension>> {
+pub fn rules_temperature<'a>() -> Result<RuleSet<'a, Dimension>> {
     Ok(RuleSet(vec![
         rule! { 
             "number as temp", 
@@ -29,7 +29,7 @@ fn rules_temperature<'a>() -> Result<RuleSet<'a, Dimension>> {
     ]))
 }
 
-fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
+pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
     Ok(RuleSet(vec![
         rule! { "ten", (regex!(r#"ten"#)), |_| IntegerValue::new_with_grain(10, 1) },
         rule! { "single", (regex!(r#"single"#)), |_| IntegerValue::new_with_grain(1, 1) },
@@ -128,7 +128,7 @@ fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
              "decimal number",
              (regex!(r#"(\d*\.\d+)"#)),
              |text_match| {
-                 let value: f64 = text_match.0[0].parse()?;
+                 let value: f32 = text_match.0[0].parse()?;
                  Ok(FloatValue { value: value, .. FloatValue::default() })
              }
         },
@@ -146,7 +146,7 @@ fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
              (regex!(r#"(\d+(,\d\d\d)+\.\d+)"#)),
              |text_match| {
                  let reformatted_string = text_match.0[1].replace(",", "");
-                 let value: f64 = reformatted_string.parse()?;
+                 let value: f32 = reformatted_string.parse()?;
                  Ok(FloatValue { value: value, .. FloatValue::default() })
              }
         },
@@ -171,33 +171,33 @@ fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                 })
             }
         },
-        rule! {
-            "numbers suffixes (K, M, G)",
-            (
-                number_check!(|number: &NumberValue| !number.suffixed()),
-                regex!(r#"([kmg])(?=[\W\$€]|$)"#)
-            ),
-            |a, text_match| -> RuleResult<NumberValue> {
-                let multiplier = match text_match.0[0].as_ref() {
-                    "k" => 1000,
-                    "m" => 1000000,
-                    "g" => 1000000000,
-                    _ => panic!("Unknown match"),
-                };
-                Ok(match a.value.clone() { // checked
-                    NumberValue::Integer(integer) => IntegerValue {
-                                                        value: integer.value * multiplier,
-                                                        suffixed: true,
-                                                        .. integer
-                                                    }.into(),
-                    NumberValue::Float(float) => FloatValue {
-                                                        value: float.value * (multiplier as f64),
-                                                        suffixed: true,
-                                                        .. float
-                                                    }.into(),
-                })
-            }
-        },
+        //rule! {
+        //    "numbers suffixes (K, M, G)",
+        //    (
+        //        number_check!(|number: &NumberValue| !number.suffixed()),
+        //        regex!(r#"([kmg])(?=[\W\$€]|$)"#)
+        //    ),
+        //    |a, text_match| -> RuleResult<NumberValue> {
+        //        let multiplier = match text_match.0[0].as_ref() {
+        //            "k" => 1000,
+        //            "m" => 1000000,
+        //            "g" => 1000000000,
+        //            _ => panic!("Unknown match"),
+        //        };
+        //        Ok(match a.value.clone() { // checked
+        //            NumberValue::Integer(integer) => IntegerValue {
+        //                                                value: integer.value * multiplier,
+        //                                                suffixed: true,
+        //                                                .. integer
+        //                                            }.into(),
+        //            NumberValue::Float(float) => FloatValue {
+        //                                                value: float.value * (multiplier as f32),
+        //                                                suffixed: true,
+        //                                                .. float
+        //                                            }.into(),
+        //        })
+        //    }
+        //},
         rule! {
              "ordinals (first..31st)",
             (regex!(r#"(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twenty-first|twenty-second|twenty-third|twenty-fourth|twenty-fifth|twenty-sixth|twenty-seventh|twenty-eighth|twenty-ninth|thirtieth|thirty-first)"#)),
