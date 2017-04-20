@@ -10,8 +10,7 @@ pub mod parser;
 
 use core::rule::rule_errors::*;
 
-#[derive(Debug,Clone, PartialEq)]
-pub enum Dimension {
+duckling_value! { Dimension
     Number(NumberValue),
     Ordinal(OrdinalValue),
     Temperature(TemperatureValue),
@@ -20,22 +19,6 @@ pub enum Dimension {
 #[derive(Debug,PartialEq,Copy,Clone)]
 pub struct OrdinalValue {
     value: i64,
-}
-
-impl From<OrdinalValue> for Dimension {
-    fn from(v: OrdinalValue) -> Dimension {
-        Dimension::Ordinal(v)
-    }
-}
-
-impl AttemptFrom<Dimension> for OrdinalValue {
-    fn attempt_from(v: Dimension) -> Option<OrdinalValue> {
-        if let Dimension::Ordinal(value) = v {
-            Some(value)
-        } else {
-            None
-        }
-    }
 }
 
 #[derive(Debug,PartialEq,Copy,Clone)]
@@ -72,6 +55,12 @@ impl IntegerValue {
 impl From<IntegerValue> for Dimension {
     fn from(v: IntegerValue) -> Dimension {
         Dimension::Number(NumberValue::Integer(v))
+    }
+}
+
+impl From<FloatValue> for Dimension {
+    fn from(v: FloatValue) -> Dimension {
+        Dimension::Number(NumberValue::Float(v))
     }
 }
 
@@ -114,12 +103,6 @@ impl FloatValue {
     }
 }
 
-impl From<FloatValue> for Dimension {
-    fn from(v: FloatValue) -> Dimension {
-        Dimension::Number(NumberValue::Float(v))
-    }
-}
-
 impl From<FloatValue> for NumberValue {
     fn from(v: FloatValue) -> NumberValue {
         NumberValue::Float(v)
@@ -155,42 +138,10 @@ impl NumberValue {
     }
 }
 
-impl AttemptFrom<Dimension> for NumberValue {
-    fn attempt_from(v: Dimension) -> Option<NumberValue> {
-        if let Dimension::Number(value) = v {
-            Some(value)
-        } else {
-            None
-        }
-    }
-}
-
-impl From<NumberValue> for Dimension {
-    fn from(v: NumberValue) -> Dimension {
-        Dimension::Number(v)
-    }
-}
-
 #[derive(Debug,PartialEq,Clone)]
 pub struct TemperatureValue {
     value: f32,
     unit: Option<&'static str>,
     latent: bool
 
-}
-
-impl AttemptFrom<Dimension> for TemperatureValue {
-    fn attempt_from(v: Dimension) -> Option<TemperatureValue> {
-        if let Dimension::Temperature(value) = v {
-            Some(value)
-        } else {
-            None
-        }
-    }
-}
-
-impl From<TemperatureValue> for Dimension {
-    fn from(v: TemperatureValue) -> Dimension {
-        Dimension::Temperature(v)
-    }
 }

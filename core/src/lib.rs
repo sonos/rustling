@@ -12,6 +12,33 @@ use rule::Rule;
 use pattern::Range;
 use errors::*;
 
+#[macro_export]
+macro_rules! duckling_value {
+    ( $name:ident $($varname:ident($varty:ty)),*, ) => {
+        #[derive(Debug,Clone, PartialEq)]
+        pub enum $name {
+            $( $varname($varty) ),*
+        }
+
+        $(
+            impl From<$varty> for $name {
+                fn from(v: $varty) -> $name {
+                    $name::$varname(v)
+                }
+            }
+            impl AttemptFrom<$name> for $varty {
+                fn attempt_from(v: $name) -> Option<$varty> {
+                    if let $name::$varname(value) = v {
+                        Some(value)
+                    } else {
+                        None
+                    }
+                }
+            }
+        )*
+    }
+}
+
 pub mod errors {
     error_chain! {
         foreign_links {
@@ -171,30 +198,9 @@ mod tests {
         assert_eq!(vec![12, 42, 12, 42, 54, 504], values);
     }
 
-    #[derive(Copy,Clone,PartialEq,Debug)]
-    enum Value {
+    duckling_value! { Value
         UI(usize),
         FP(f32),
-    }
-    impl From<f32> for Value {
-        fn from(f: f32) -> Value {
-            Value::FP(f)
-        }
-    }
-    impl From<usize> for Value {
-        fn from(v: usize) -> Value {
-            Value::UI(v)
-        }
-    }
-    impl AttemptFrom<Value> for f32 {
-        fn attempt_from(v: Value) -> Option<f32> {
-            if let Value::FP(f) = v { Some(f) } else { None }
-        }
-    }
-    impl AttemptFrom<Value> for usize {
-        fn attempt_from(v: Value) -> Option<usize> {
-            if let Value::UI(f) = v { Some(f) } else { None }
-        }
     }
 
     #[test]
@@ -208,7 +214,7 @@ mod tests {
            |a,_,b| Ok(a.value.powi(b.value as i32)) };
         let rule_set = RuleSet(vec![int, fp, pow]);
         let results = rule_set.apply_all("foo: 1.5^2").unwrap();
-        let values: Vec<_> = results.iter().map(|pn| pn.value).collect();
+        let values: Vec<_> = results.into_iter().map(|pn| pn.value).collect();
         assert_eq!(vec![Value::UI(1), Value::UI(5), Value::UI(2), Value::FP(1.5), Value::FP(2.25)],
                    values);
     }
