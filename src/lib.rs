@@ -3,9 +3,10 @@ extern crate error_chain;
 extern crate duckling_core as core;
 extern crate duckling_ml as ml;
 
-use ::std::cmp::{ PartialOrd, Ordering };
+use ::std::cmp::{PartialOrd, Ordering};
 
 use errors::*;
+
 pub mod errors {
     error_chain! {
         links {
@@ -27,7 +28,7 @@ impl ml::ClassifierId for Id {}
 pub struct Class(bool);
 impl ml::ClassId for Class {}
 
-pub trait Value: Clone+PartialEq+::std::fmt::Debug {
+pub trait Value: Clone + PartialEq + ::std::fmt::Debug + ::std::fmt::Display {
     fn same_dimension_as(&self, other: &Self) -> bool;
 }
 
@@ -38,23 +39,23 @@ pub struct ParserMatch<V: Value> {
     pub probalog: f32,
 }
 
-fn match_cmp<V,S>(a:&ParserMatch<V>, b:&ParserMatch<V>, prio:S) -> Option<Ordering> 
-where
-V:Value, S: Fn(&V) -> Option<usize>
+fn match_cmp<V>(a: &(core::ParsedNode<V>, ParserMatch<V>, Option<usize>),
+                b: &(core::ParsedNode<V>, ParserMatch<V>, Option<usize>))
+                -> Option<Ordering>
+    where V: Value
 {
-    if a.value.same_dimension_as(&b.value) {
-        if a.range == b.range {
-            a.probalog.partial_cmp(&b.probalog)
-        } else if a.range.intersects(&b.range) {
-            b.range.0.partial_cmp(&a.range.0)
+    if a.1.value.same_dimension_as(&b.1.value) {
+        if a.1.range == b.1.range {
+            a.1.probalog.partial_cmp(&b.1.probalog)
+        } else if a.1.range.intersects(&b.1.range) {
+            b.1.range.1.partial_cmp(&a.1.range.1)
         } else {
-            a.range.partial_cmp(&b.range)
+            a.1.range.partial_cmp(&b.1.range)
         }
     } else {
-        let prio_a = prio(&a.value);
-        let prio_b = prio(&b.value);
-        if (a.range == b.range || a.range.intersects(&b.range)) && (prio_a.is_some() && prio_b.is_some()) {
-            prio_a.unwrap().partial_cmp(&prio_b.unwrap()) // checked
+        if (a.1.range == b.1.range || a.1.range.intersects(&b.1.range)) &&
+           (a.2.is_some() && b.2.is_some()) {
+            a.2.unwrap().partial_cmp(&b.2.unwrap()) // checked
         } else {
             None
         }
@@ -65,11 +66,7 @@ pub trait FeatureExtractor<V: Value, Feat: ml::Feature> {
     fn extract_features(node: &core::ParsedNode<V>) -> ml::Input<Id, Feat>;
 }
 
-pub struct Parser<'a,
-V: Value,
-Feat: ml::Feature,
-Extractor: FeatureExtractor<V, Feat>>
-{
+pub struct Parser<'a, V: Value, Feat: ml::Feature, Extractor: FeatureExtractor<V, Feat>> {
     rules: core::RuleSet<'a, V>,
     model: ml::Model<Id, Class, Feat>,
     extractor: ::std::marker::PhantomData<Extractor>,
@@ -91,40 +88,71 @@ impl<'a, V, Feat, Extractor> Parser<'a, V, Feat, Extractor>
         }
     }
 
-    pub fn parse<S: Fn(&V) -> Option<usize>>(&self, input: &'a str, dimension_prio:S) -> Result<Vec<ParserMatch<V>>> {
-
-        let candidates = self.rules
+    fn raw_candidates(&self, input: &'a str) -> Result<Vec<(core::ParsedNode<V>, ParserMatch<V>)>> {
+        self.rules
             .apply_all(input)?
             .into_iter()
             .map(|p| {
                 let features: ml::Input<Id, Feat> = Extractor::extract_features(&p);
                 let probalog = self.model.classify(&features, &Class(true))?;
-                Ok(ParserMatch {
-                    range: p.root_node.range,
-                    value: p.value,
-                    probalog: probalog,
-                })
+                let pm = ParserMatch {
+                        range: p.root_node.range,
+                        value: p.value.clone(),
+                        probalog: probalog };
+                Ok((p, pm))
             })
-            .filter(|a| a.is_err() || dimension_prio(&a.as_ref().unwrap().value).is_some()) // checked
-            .collect::<Result<_>>()?;
-        println!("XXXX {:?}", candidates);
-        Ok(maximal_elements(candidates, |a,b| match_cmp(a,b, &dimension_prio)))
+            .collect()
+    }
+
+    pub fn candidates<S: Fn(&V) -> Option<usize>>
+        (&self,
+         input: &'a str,
+         dimension_prio: S)
+         -> Result<Vec<(core::ParsedNode<V>, ParserMatch<V>, Option<usize>, bool)>> {
+        let candidates = self.raw_candidates(input)?
+            .into_iter()
+            .map(|(pn, pm)| {
+                let p = dimension_prio(&pm.value);
+                (pn, pm, p)
+            })
+            .collect();
+        Ok(tag_maximal_elements(candidates, |a, b| match_cmp(a, b))
+            .into_iter()
+            .map(|((pn,pv,prio), tag)| (pn, pv, prio, tag))
+            .collect())
+    }
+
+    pub fn parse<S: Fn(&V) -> Option<usize>>(&self,
+                                             input: &'a str,
+                                             dimension_prio: S)
+                                             -> Result<Vec<ParserMatch<V>>> {
+        Ok(self.candidates(input, dimension_prio)?
+            .into_iter()
+            .filter(|a| a.3)
+            .map(|a| a.1)
+            .collect())
     }
 }
 
 // This is maximal elements in the POSet (Partial Ordered Set) sense: all
 // elements that have no "dominant" are a maximal element.
-fn maximal_elements<I, CMP: Fn(&I,&I) -> Option<Ordering>>(values: Vec<I>, cmp:CMP) -> Vec<I> {
+fn tag_maximal_elements<I, CMP: Fn(&I, &I) -> Option<Ordering>>(values: Vec<I>,
+                                                                cmp: CMP)
+                                                                -> Vec<(I, bool)> {
     let mut mask = vec!(false; values.len());
-    'a: for (ix,a) in values.iter().enumerate() {
+    'a: for (ix, a) in values.iter().enumerate() {
         for b in values.iter() {
-            if cmp(a,b) == Some(Ordering::Less) {
+            if cmp(a, b) == Some(Ordering::Less) {
                 continue 'a;
             }
         }
         mask[ix] = true;
     }
-    values.into_iter().zip(mask.into_iter()).filter(|&(_,m)| m).map(|(a,_)| a).collect()
+    values.into_iter().zip(mask.into_iter()).collect()
+}
+
+fn maximal_elements<I, CMP: Fn(&I, &I) -> Option<Ordering>>(values: Vec<I>, cmp: CMP) -> Vec<I> {
+    tag_maximal_elements(values, cmp).into_iter().filter(|&(_, m)| m).map(|(a, _)| a).collect()
 }
 
 
@@ -132,31 +160,32 @@ fn maximal_elements<I, CMP: Fn(&I,&I) -> Option<Ordering>>(values: Vec<I>, cmp:C
 mod tests {
     use ::std::cmp::Ordering;
 
-        fn cmp(a:&&'static str, b: &&'static str) -> Option<Ordering> {
-            if a == b {
-                Some(Ordering::Equal)
-            } else if a.starts_with(b) {
-                Some(Ordering::Greater)
-            } else if b.starts_with(a) {
-                Some(Ordering::Less)
-            } else {
-                None
-            }
+    fn cmp(a: &&'static str, b: &&'static str) -> Option<Ordering> {
+        if a == b {
+            Some(Ordering::Equal)
+        } else if a.starts_with(b) {
+            Some(Ordering::Greater)
+        } else if b.starts_with(a) {
+            Some(Ordering::Less)
+        } else {
+            None
+        }
     }
 
     #[test]
     fn test_adhoc_order() {
-        assert_eq!(cmp(&"a",&"aa"), Some(Ordering::Less));
-        assert_eq!(cmp(&"b",&"aa"), None);
-        assert_eq!(cmp(&"ba",&"aa"), None);
-        assert_eq!(cmp(&"aa",&"aa"), Some(Ordering::Equal));
-        assert_eq!(cmp(&"aaa",&"aa"), Some(Ordering::Greater));
-        assert_eq!(cmp(&"ab",&"aa"), None);
+        assert_eq!(cmp(&"a", &"aa"), Some(Ordering::Less));
+        assert_eq!(cmp(&"b", &"aa"), None);
+        assert_eq!(cmp(&"ba", &"aa"), None);
+        assert_eq!(cmp(&"aa", &"aa"), Some(Ordering::Equal));
+        assert_eq!(cmp(&"aaa", &"aa"), Some(Ordering::Greater));
+        assert_eq!(cmp(&"ab", &"aa"), None);
     }
 
     #[test]
     fn max_elements() {
         let values = vec!["ba", "baaar", "foo", "aa", "aaa", "a"];
-        assert_eq!(super::maximal_elements(values, cmp), vec!["baaar", "foo", "aaa"])
+        assert_eq!(super::maximal_elements(values, cmp),
+                   vec!["baaar", "foo", "aaa"])
     }
 }

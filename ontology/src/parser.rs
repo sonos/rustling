@@ -9,14 +9,14 @@ use core::pattern::Range;
 use std::cmp::Ordering;
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
-struct Feat(Vec<&'static str>);
+pub struct Feat(Vec<&'static str>);
 impl ml::Feature for Feat {}
 
-fn build_parser_en<'a>() -> Result<duckling::Parser<'a,Dimension, Feat, FeatureExtractor>> {
+pub fn build_parser_en<'a>() -> Result<duckling::Parser<'a,Dimension, Feat, FeatureExtractor>> {
     Ok(duckling::Parser::new(en::rules_numbers()?, ml::Model { classifiers: HashMap::new() }))
 }
 
-struct FeatureExtractor();
+pub struct FeatureExtractor();
 
 impl duckling::FeatureExtractor<Dimension, Feat> for FeatureExtractor {
     fn extract_features(node:&ParsedNode<Dimension>) -> Input<duckling::Id, Feat> {

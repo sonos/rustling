@@ -29,6 +29,16 @@ impl duckling::Value for Dimension {
     }
 }
 
+impl ::std::fmt::Display for Dimension {
+    fn fmt(&self, fmt:&mut ::std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+        match self {
+            &Dimension::Number(_) => write!(fmt, "Number"),
+            &Dimension::Ordinal(_) => write!(fmt, "Ordinal"),
+            &Dimension::Temperature(_) => write!(fmt, "Temperature"),
+        }
+    }
+}
+
 #[derive(Debug,PartialEq,Copy,Clone)]
 pub struct OrdinalValue {
     value: i64,
