@@ -140,7 +140,7 @@ impl<'a, A, PA, B, PB, V, StashValue, F> Rule<'a, StashValue>
                     old_node.root_node.children != nodes ||
                     old_node.root_node.rule_name != self.name
                 }) {
-                    let range = (sub.0.range().0, sub.1.range().1);
+                    let range = Range(sub.0.range().0, sub.1.range().1);
                     match (self.production)(&sub.0, &sub.1) {
                         Ok(v) => {
                             Some(Ok(ParsedNode::new(self.name,
@@ -235,7 +235,7 @@ impl<'a, A, PA, B, PB, C, PC, V, StashValue, F> Rule<'a, StashValue>
                     old_node.root_node.children != nodes ||
                     old_node.root_node.rule_name != self.name
                 }) {
-                    let range = (sub.0.range().0, sub.2.range().1);
+                    let range = Range(sub.0.range().0, sub.2.range().1);
                     match (self.production)(&sub.0, &sub.1, &sub.2) {
                         Ok(v) => Some(Ok(ParsedNode::new(self.name, v.into(), range, nodes))),
                         Err(e) => Some(Err(make_production_error(e))),

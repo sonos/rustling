@@ -1,3 +1,4 @@
+extern crate duckling;
 #[macro_use]
 extern crate duckling_core as core;
 extern crate duckling_ml as ml;
@@ -14,6 +15,17 @@ duckling_value! { Dimension
     Number(NumberValue),
     Ordinal(OrdinalValue),
     Temperature(TemperatureValue),
+}
+
+impl duckling::Value for Dimension {
+    fn same_dimension_as(&self, other: &Self) -> bool {
+        match (self, other) {
+            (&Dimension::Number(_), &Dimension::Number(_))
+                | (&Dimension::Ordinal(_), &Dimension::Ordinal(_))
+                | (&Dimension::Temperature(_), &Dimension::Temperature(_)) => true,
+            _ => false
+        }
+    }
 }
 
 #[derive(Debug,PartialEq,Copy,Clone)]

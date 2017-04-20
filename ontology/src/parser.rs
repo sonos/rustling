@@ -9,108 +9,75 @@ use core::pattern::Range;
 use std::cmp::Ordering;
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
-struct Id(&'static str);
-impl ml::ClassifierId for Id {}
-
-#[derive(Debug, Hash, Clone, Eq, PartialEq)]
-struct Class(bool);
-impl ml::ClassId for Class {}
-
-#[derive(Debug, Hash, Clone, Eq, PartialEq)]
 struct Feat(Vec<&'static str>);
 impl ml::Feature for Feat {}
 
-struct Parser<'a> {
-    rules: RuleSet<'a, Dimension>,
-    model: Model<Id, Class, Feat>
+fn build_parser_en<'a>() -> Result<duckling::Parser<'a,Dimension, Feat, FeatureExtractor>> {
+    Ok(duckling::Parser::new(en::rules_numbers()?, ml::Model { classifiers: HashMap::new() }))
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ParserMatch {
-    range: Range,
-    value: Dimension,
-    probalog: f32,
-}
+struct FeatureExtractor();
 
-impl PartialOrd for ParserMatch {
-    fn partial_cmp(&self, other: &ParserMatch) -> Option<Ordering> {
-        unimplemented!()
+impl duckling::FeatureExtractor<Dimension, Feat> for FeatureExtractor {
+    fn extract_features(node:&ParsedNode<Dimension>) -> Input<duckling::Id, Feat> {
+        extract_node_features(&node.root_node)
     }
 }
 
-impl<'a> Parser<'a> {
-    pub fn new() -> Result<Parser<'a>> {
-        return Ok(Parser {
-            rules: en::rules_numbers()?,
-            model: Model { classifiers: HashMap::new() }
-        })
-    }
+fn extract_node_features(node:&core::Node) -> Input<duckling::Id, Feat> {
+    let features = vec![
+        Feat(node.children.iter().map({ |child| child.rule_name }).collect())
+    ];
 
-    pub fn parse(&self, input: &'a str) -> Result<Vec<ParserMatch>> {
+    let children_features = node.children
+        .iter()
+        .map({ |child| extract_node_features(child) })
+        .collect();
 
-        let candidates = self.rules
-            .apply_all(input)?
-            .into_iter().map(|p| {
-                let features: Input<Id, Feat> = p.extract_features();
-                let probalog = self.model.classify(&features, &Class(true)).unwrap(); //FIXME: return a result
-                ParserMatch {
-                    range: p.root_node.range,
-                    value: p.value,
-                    probalog: probalog
-                }
-            })
-            .collect();
-
-        let winners = self.select_winners(candidates);
-        Ok(winners)
-    }
-
-    fn select_winners(&self, candidates: Vec<ParserMatch>) -> Vec<ParserMatch> {
-        candidates
+    Input {
+        classifier_id: duckling::Id(node.rule_name),
+        features: features,
+        children: children_features,
     }
 }
 
-trait FeatureExtractor {
-    fn extract_features(&self) -> Input<Id, Feat>;
-}
-
-impl<V: Clone> FeatureExtractor for ParsedNode<V> {
-    fn extract_features(&self) -> Input<Id, Feat> {
-        self.root_node.extract_features()
-    }
-}
-
-impl FeatureExtractor for Node {
-    fn extract_features(&self) -> Input<Id, Feat> {
-        let features = vec![
-            Feat(self.children.iter().map({ |child| child.rule_name }).collect())
-        ];
-
-        let children_features = self.children
-            .iter()
-            .map({ |child| child.extract_features() })
-            .collect();
-
-        Input {
-            classifier_id: Id(self.rule_name),
-            features: features,
-            children: children_features,
-        }
-    }
-}
- 
 #[cfg(test)]
 mod tests {
     use parser::*;
+    use duckling::ParserMatch;
+    use core::pattern::Range;
 
     #[test]
-    fn test_parser() {
-        let parser = Parser::new().unwrap();
-        let result = parser.parse("twenty").unwrap();
+    fn test_twenty() {
+        let parser = build_parser_en().unwrap();
+        let result = parser.parse("twenty", |_| Some(1)).unwrap();
         assert_eq!(vec![ParserMatch {
-            range: (0, 6),
+            range: Range(0, 6),
             value: IntegerValue::new_with_grain(20, 1).unwrap().into(),
             probalog: 0.0,
         }], result);
+    }
+
+    #[test]
+    fn test_21() {
+        let parser = build_parser_en().unwrap();
+        let result = parser.parse("twenty-one", |_| Some(1)).unwrap();
+        panic!("{:?}", result);
+        panic!();
+    }
+
+    #[test]
+    fn test_2_1000() {
+        let parser = build_parser_en().unwrap();
+        let result = parser.parse("twenty-one thousands", |_| Some(1)).unwrap();
+        panic!("{:?}", result);
+        panic!();
+    }
+
+    #[test]
+    fn test_foobar() {
+        let parser = build_parser_en().unwrap();
+        let result = parser.parse("foobar twenty thousands", |_| Some(1)).unwrap();
+        panic!("{:?}", result);
     }
 }

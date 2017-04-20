@@ -1,9 +1,33 @@
+use ::std::cmp::{ PartialOrd, Ordering };
+
 use smallvec::SmallVec;
 
 use errors::*;
 use ::*;
 
-pub type Range = (usize, usize);
+#[derive(PartialEq,Clone,Debug,Copy)]
+pub struct Range(pub usize, pub usize);
+
+impl Range {
+    pub fn intersects(&self, other: &Self) -> bool {
+        self.partial_cmp(other).is_none() && (self.1 >= other.0 && other.1 >= self.0)
+    }
+}
+
+impl PartialOrd for Range {
+
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self == other {
+            Some(Ordering::Equal)
+        } else if self.0 <= other.0 && other.1 <= self.1 {
+            Some(Ordering::Greater)
+        } else if other.0 <= self.0 && self.1 <= other.1 {
+            Some(Ordering::Less)
+        } else {
+            None
+        }
+    }
+}
 
 pub trait Match<'a>: Clone {
     fn range(&self) -> Range;
@@ -64,7 +88,7 @@ impl<'a, StashValue: Clone> Pattern<'a, Text<'a>, StashValue> for TextPattern<St
                                 self.1,
                                 sentence)
                     })?;
-                let full_range = (full.start(), full.end());
+                let full_range = Range(full.start(), full.end());
                 let mut groups = SmallVec::new();
                 for (ix, group) in cap.iter().enumerate() {
                     groups.push(group.ok_or_else(|| {
@@ -136,3 +160,4 @@ impl<'a, StashValue, V: 'a> Pattern<'a, ParsedNode<V>, StashValue> for FilterNod
             .collect())
     }
 }
+

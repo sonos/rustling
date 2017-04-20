@@ -10,7 +10,7 @@ use errors::*;
 pub mod errors {
     error_chain! {
         types {
-            ClassifyError, ClassifyErrorKind, ClassifyResultExt, ClassifyResult;
+            MLError, MLErrorKind, MLResultExt, MLResult;
         }
     }
 }
@@ -44,7 +44,7 @@ pub struct ClassInfo<Feat: Feature> {
 }
 
 impl<Id: ClassifierId, Class: ClassId, Feat: Feature> Model<Id, Class, Feat> {
-    pub fn classify(&self, input: &Input<Id, Feat>, target: &Class) -> ClassifyResult<f32> {
+    pub fn classify(&self, input: &Input<Id, Feat>, target: &Class) -> MLResult<f32> {
         let classifier = if let Some(classifier) = self.classifiers.get(&input.classifier_id) {
             classifier
         } else {
@@ -93,7 +93,7 @@ impl<Id: ClassId, Feat: Feature> Classifier<Id, Feat> {
         scores
     }
 
-    pub fn classify(&self, bag_of_features: &HashMap<Feat, usize>) -> ClassifyResult<(Id, f32)> {
+    pub fn classify(&self, bag_of_features: &HashMap<Feat, usize>) -> MLResult<(Id, f32)> {
         Ok(self.scores(bag_of_features)
             .into_iter()
             .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(::std::cmp::Ordering::Equal))

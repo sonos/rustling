@@ -1,2 +1,12 @@
+[package]
+name = "duckling"
+version = "0.1.0"
+authors = ["hdlj <hubert.delajonquiere@snips.net>", "Mathieu Poumeyrol <kali@zoy.org>"]
+
 [workspace]
 members = ["core", "ontology", "ml"]
+
+[dependencies]
+duckling-core = { path="core"}
+duckling-ml = { path="ml"}
+error-chain = "0.10"
