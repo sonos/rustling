@@ -5,3 +5,4 @@ authors = ["hdlj <hubert.delajonquiere@snips.net>"]
 
 [dependencies]
 duckling-core = { path = "../core" }
+duckling-ml = { path = "../ml" }
