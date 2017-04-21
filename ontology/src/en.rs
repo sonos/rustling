@@ -35,7 +35,7 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
         rule! {
             "intersect (with and)",
             (
-                number_check!(|number: &NumberValue| !number.grain().unwrap_or(0) > 1),
+                number_check!(|number: &NumberValue| number.grain().unwrap_or(0) > 1),
                 regex!(r#"and"#),
                 number_check!()
             ),
@@ -44,7 +44,7 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
         rule! {
             "intersect",
             (
-                number_check!(|number: &NumberValue| !number.grain().unwrap_or(0) > 1),
+                number_check!(|number: &NumberValue| number.grain().unwrap_or(0) > 1),
                 number_check!()
             ),
             |a, b| helpers::compose_numbers(&a.value, &b.value)
