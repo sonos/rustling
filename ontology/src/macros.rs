@@ -27,6 +27,10 @@ macro_rules! regex {
     ($pattern:expr) => ( reg!(Dimension, $pattern))
 }
 
+macro_rules! regex_neg_lh {
+    ($pattern:expr, $neg_lh:expr) => ( reg_neg_lh!(Dimension, $pattern, $neg_lh))
+}
+
 macro_rules! temperature_check {
     () => ( $crate::core::pattern::AnyNodePattern::<TemperatureValue>::new() );
 }

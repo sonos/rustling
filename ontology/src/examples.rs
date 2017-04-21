@@ -26,9 +26,10 @@ trait Check<V: Value>: ::std::fmt::Debug {
     fn check(&self, &ParsedNode<V>) -> bool;
 }
 
-pub fn train(rules: &RuleSet<Dimension>,
-         examples: &Vec<Example<Dimension>>)
-         -> Model<duckling::Id, duckling::Class, parser::Feat> {
+pub fn train
+    (rules: &RuleSet<Dimension>,
+     examples: Vec<Example<Dimension>>)
+     -> duckling::errors::DucklingResult<Model<duckling::Id, duckling::Class, parser::Feat>> {
     use std::collections::HashMap;
     use std::collections::HashSet;
     use duckling::FeatureExtractor;
@@ -37,10 +38,10 @@ pub fn train(rules: &RuleSet<Dimension>,
     let mut classified_ex: HashMap<duckling::Id,
                                    Vec<(HashMap<parser::Feat, usize>, duckling::Class)>> =
         HashMap::new();
-    for ex in examples {
-        let mut true_exs = vec!();
-        let mut false_exs = vec!();
+    for ex in examples.iter() {
         let stash = rules.apply_all(&ex.text).unwrap();
+        let mut true_exs = vec![];
+        let mut false_exs = vec![];
         for candidate in stash {
             if !(candidate.root_node.range.0 == 0 && candidate.root_node.range.1 == ex.text.len()) {
                 continue;
@@ -53,11 +54,14 @@ pub fn train(rules: &RuleSet<Dimension>,
         }
         let mut false_nodes = HashSet::new();
         let mut true_nodes = HashSet::new();
-        fn add_to_set(nodes:&mut HashSet<Node>, node: &Node) {
+        fn add_to_set(nodes: &mut HashSet<Node>, node: &Node) {
             nodes.insert(node.clone());
             for child in &node.children {
                 add_to_set(nodes, child);
             }
+        }
+        if true_exs.len() == 0 {
+            Err(format!("example: {:?} matched no rule", ex))?
         }
         for parse_node in true_exs {
             add_to_set(&mut true_nodes, &parse_node.root_node);
@@ -71,20 +75,24 @@ pub fn train(rules: &RuleSet<Dimension>,
             for f in parser::extract_node_features(&n).features {
                 *counted_features.entry(f).or_insert(0) += 1;
             }
-            classified_ex.entry(duckling::Id(n.rule_name)).or_insert(vec!()).push((counted_features, duckling::Class(true)));
+            classified_ex.entry(duckling::Id(n.rule_name))
+                .or_insert(vec![])
+                .push((counted_features, duckling::Class(true)));
         }
         for n in false_nodes {
             let mut counted_features = HashMap::new();
             for f in parser::extract_node_features(&n).features {
                 *counted_features.entry(f).or_insert(0) += 1;
             }
-            classified_ex.entry(duckling::Id(n.rule_name)).or_insert(vec!()).push((counted_features, duckling::Class(false)));
+            classified_ex.entry(duckling::Id(n.rule_name))
+                .or_insert(vec![])
+                .push((counted_features, duckling::Class(false)));
         }
     }
-    let classifiers = classified_ex.into_iter().map(|(id,examples)| (id, ml::Classifier::train(&examples))).collect();
-    Model {
-        classifiers: classifiers
-    }
+    let classifiers = classified_ex.into_iter()
+        .map(|(id, examples)| (id, ml::Classifier::train(&examples)))
+        .collect();
+    Ok(Model { classifiers: classifiers })
 }
 
 // ONTOLOGY

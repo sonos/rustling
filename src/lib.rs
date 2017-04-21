@@ -11,6 +11,9 @@ pub use core::ParsedNode;
 
 pub mod errors {
     error_chain! {
+        types {
+            DucklingError, DucklingErrorKind, DucklingResultExt, DucklingResult;
+        }
         links {
             Core(::core::errors::Error, ::core::errors::ErrorKind);
             ML(::ml::errors::MLError, ::ml::errors::MLErrorKind);
@@ -90,7 +93,7 @@ impl<'a, V, Feat, Extractor> Parser<'a, V, Feat, Extractor>
         }
     }
 
-    fn raw_candidates(&self, input: &'a str) -> Result<Vec<(ParsedNode<V>, ParserMatch<V>)>> {
+    fn raw_candidates(&self, input: &'a str) -> DucklingResult<Vec<(ParsedNode<V>, ParserMatch<V>)>> {
         self.rules
             .apply_all(input)?
             .into_iter()
@@ -110,7 +113,7 @@ impl<'a, V, Feat, Extractor> Parser<'a, V, Feat, Extractor>
         (&self,
          input: &'a str,
          dimension_prio: S)
-         -> Result<Vec<(ParsedNode<V>, ParserMatch<V>, Option<usize>, bool)>> {
+         -> DucklingResult<Vec<(ParsedNode<V>, ParserMatch<V>, Option<usize>, bool)>> {
         let candidates = self.raw_candidates(input)?
             .into_iter()
             .map(|(pn, pm)| {
@@ -127,7 +130,7 @@ impl<'a, V, Feat, Extractor> Parser<'a, V, Feat, Extractor>
     pub fn parse<S: Fn(&V) -> Option<usize>>(&self,
                                              input: &'a str,
                                              dimension_prio: S)
-                                             -> Result<Vec<ParserMatch<V>>> {
+                                             -> DucklingResult<Vec<ParserMatch<V>>> {
         Ok(self.candidates(input, dimension_prio)?
             .into_iter()
             .filter(|a| a.3)

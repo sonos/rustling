@@ -5,6 +5,17 @@ macro_rules! reg {
 }
 
 #[macro_export]
+macro_rules! reg_neg_lh {
+    ($typ:ty, $pattern:expr, $neg_lh:expr) => {
+        $crate::pattern::TextNegLHPattern::<$typ>::new(
+            reg!($typ, $pattern),
+            $crate::regex::Regex::new($neg_lh)?,
+            concat!($pattern, "(?=", $neg_lh, ")") )
+    }
+}
+
+
+#[macro_export]
 macro_rules! rule {
     ($name:expr, ($a:expr), $f:expr) =>
         { Box::new($crate::rule::Rule1::new($name, $a, $f)) };

@@ -15,7 +15,7 @@ pub mod rule_errors {
         }
 
         errors {
-            InvalidNumber(t: String)
+            Invalid
         }
     }
 }
@@ -152,6 +152,7 @@ impl<'a, A, PA, B, PB, V, StashValue, F> Rule<'a, StashValue>
                                                     range,
                                                     vec![sub.0.to_node(), sub.1.to_node()])))
                         }
+                        Err(RuleError(RuleErrorKind::Invalid, _)) => None,
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {

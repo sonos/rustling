@@ -15,6 +15,6 @@ pub fn compose_numbers(a: &NumberValue, b:&NumberValue) -> RuleResult<NumberValu
             },
         }
     } else {
-        return Err(RuleErrorKind::InvalidNumber(format!("The two numbers {:?} and {:?} cannot be composed.", a, b)).into())
+        return Err(RuleErrorKind::Invalid.into())
     }
 }

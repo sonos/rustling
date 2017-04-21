@@ -15,9 +15,9 @@ fn main() {
 
     match matches.subcommand() {
         ("parse", Some(matches)) => {
-            let sentence = matches.value_of("sentence").unwrap();
+            let sentence = matches.value_of("sentence").unwrap().to_lowercase();
             let parser = duckling_ontology::parser::build_parser_en().unwrap();
-            let candidates = parser.candidates(&sentence, |_| Some(12)).unwrap();
+            let candidates = parser.candidates(&*sentence, |_| Some(12)).unwrap();
             let mut table = Table::new();
             table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
             table.set_titles(row!["ix", "best", "log(p)", "p", "text", "dim", "rule", "childs"]);

@@ -3,7 +3,7 @@ use ::std::cmp::{ PartialOrd, Ordering };
 use smallvec::SmallVec;
 
 use errors::*;
-use ::*;
+use {AttemptFrom, Node, ParsedNode, Stash};
 
 #[derive(PartialEq,Clone,Debug,Copy,Hash,Eq)]
 pub struct Range(pub usize, pub usize);
@@ -45,16 +45,20 @@ impl<'a, V: Clone> Match<'a> for ParsedNode<V> {
 }
 
 #[derive(Clone,Debug,PartialEq)]
-pub struct Text<'a>(pub SmallVec<[&'a str; 4]>, pub Range, pub &'static str);
+pub struct Text<'a> {
+    pub groups: SmallVec<[&'a str; 4]>,
+    range: Range,
+    pattern_name: &'static str
+}
 
 impl<'a> Match<'a> for Text<'a> {
     fn range(&self) -> Range {
-        self.1
+        self.range
     }
 
     fn to_node(&self) -> Node {
         Node {
-            rule_name: self.2,
+            rule_name: self.pattern_name,
             range: self.range(),
             children: vec![],
         }
@@ -101,9 +105,37 @@ impl<'a, StashValue: Clone> Pattern<'a, Text<'a>, StashValue> for TextPattern<St
                         })?
                         .as_str());
                 }
-                Ok(Text(groups, full_range, self.1))
+                Ok(Text { groups: groups, range: full_range, pattern_name: self.1 })
             })
             .collect()
+    }
+}
+
+pub struct TextNegLHPattern<StashValue: Clone> {
+    pattern: TextPattern<StashValue>,
+    neg_look_ahead: ::regex::Regex,
+    pattern_name: &'static str,
+}
+
+impl<StashValue: Clone> TextNegLHPattern<StashValue> {
+    pub fn new(pattern: TextPattern<StashValue>, neg_look_ahead: ::regex::Regex, pattern_name: &'static str) -> TextNegLHPattern<StashValue> {
+        TextNegLHPattern {
+            pattern: pattern,
+            neg_look_ahead: neg_look_ahead,
+            pattern_name: pattern_name,
+        }
+    }
+}
+
+impl<'a, StashValue: Clone> Pattern<'a, Text<'a>, StashValue> for TextNegLHPattern<StashValue> {
+    fn predicate(&self, stash: &Stash<StashValue>, sentence: &'a str) -> Result<Vec<Text<'a>>> {
+        Ok(self.pattern.predicate(stash, sentence)?.into_iter().filter(|t| {
+            match self.neg_look_ahead.find(&sentence[t.range().1..]) {
+                None => true,
+                Some(mat) => mat.start() == 0
+            }
+        }).map(|t| Text { pattern_name: self.pattern_name, ..t })
+        .collect())
     }
 }
 
