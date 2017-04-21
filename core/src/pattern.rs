@@ -29,12 +29,12 @@ impl PartialOrd for Range {
     }
 }
 
-pub trait Match<'a>: Clone {
+pub trait Match: Clone {
     fn range(&self) -> Range;
     fn to_node(&self) -> Node;
 }
 
-impl<'a, V: Clone> Match<'a> for ParsedNode<V> {
+impl<V: Clone> Match for ParsedNode<V> {
     fn range(&self) -> Range {
         self.root_node.range
     }
@@ -45,13 +45,21 @@ impl<'a, V: Clone> Match<'a> for ParsedNode<V> {
 }
 
 #[derive(Clone,Debug,PartialEq)]
-pub struct Text<'a> {
-    pub groups: SmallVec<[&'a str; 4]>,
+pub struct Text {
+    pub groups: SmallVec<[Range; 4]>,
     range: Range,
     pattern_name: &'static str
 }
 
-impl<'a> Match<'a> for Text<'a> {
+impl Text {
+    pub fn new(groups: SmallVec<[Range; 4]>, range: Range, pattern_name: &'static str) -> Text {
+        Text {
+            groups: groups, range: range, pattern_name: pattern_name
+        }
+    }
+}
+
+impl Match for Text {
     fn range(&self) -> Range {
         self.range
     }
@@ -65,8 +73,9 @@ impl<'a> Match<'a> for Text<'a> {
     }
 }
 
-pub trait Pattern<'a, M: Match<'a> + 'a, StashValue: Clone> {
-    fn predicate(&self, stash: &Stash<StashValue>, sentence: &'a str) -> Result<Vec<M>>;
+pub trait Pattern<StashValue: Clone> {
+    type M: Match;
+    fn predicate(&self, stash: &Stash<StashValue>, sentence: &str) -> Result<Vec<Self::M>>;
 }
 
 
@@ -80,8 +89,9 @@ impl<StashValue: Clone> TextPattern<StashValue> {
     }
 }
 
-impl<'a, StashValue: Clone> Pattern<'a, Text<'a>, StashValue> for TextPattern<StashValue> {
-    fn predicate(&self, _stash: &Stash<StashValue>, sentence: &'a str) -> Result<Vec<Text<'a>>> {
+impl<StashValue: Clone> Pattern<StashValue> for TextPattern<StashValue> {
+    type M=Text;
+    fn predicate(&self, _stash: &Stash<StashValue>, sentence: &str) -> Result<Vec<Self::M>> {
         self.0
             .captures_iter(&sentence)
             .map(|cap| {
@@ -95,15 +105,16 @@ impl<'a, StashValue: Clone> Pattern<'a, Text<'a>, StashValue> for TextPattern<St
                 let full_range = Range(full.start(), full.end());
                 let mut groups = SmallVec::new();
                 for (ix, group) in cap.iter().enumerate() {
-                    groups.push(group.ok_or_else(|| {
+                    let group = group.ok_or_else(|| {
                             format!("No capture for regexp {} in rule {}, group number {} in \
                                      capture: {}",
                                     self.0,
                                     self.1,
                                     ix,
                                     full.as_str())
-                        })?
-                        .as_str());
+                        })?;
+                    let range = Range(group.start(), group.end());
+                    groups.push(range);
                 }
                 Ok(Text { groups: groups, range: full_range, pattern_name: self.1 })
             })
@@ -127,8 +138,9 @@ impl<StashValue: Clone> TextNegLHPattern<StashValue> {
     }
 }
 
-impl<'a, StashValue: Clone> Pattern<'a, Text<'a>, StashValue> for TextNegLHPattern<StashValue> {
-    fn predicate(&self, stash: &Stash<StashValue>, sentence: &'a str) -> Result<Vec<Text<'a>>> {
+impl<StashValue: Clone> Pattern<StashValue> for TextNegLHPattern<StashValue> {
+    type M=Text;
+    fn predicate(&self, stash: &Stash<StashValue>, sentence: &str) -> Result<Vec<Text>> {
         Ok(self.pattern.predicate(stash, sentence)?.into_iter().filter(|t| {
             match self.neg_look_ahead.find(&sentence[t.range().1..]) {
                 None => true,
@@ -168,13 +180,14 @@ impl<V> FilterNodePattern<V>
     }
 }
 
-impl<'a, StashValue, V: 'a> Pattern<'a, ParsedNode<V>, StashValue> for FilterNodePattern<V>
+impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
     where StashValue: Clone,
           V: AttemptFrom<StashValue> + Clone
 {
+    type M=ParsedNode<V>;
     fn predicate(&self,
                  stash: &Stash<StashValue>,
-                 _sentence: &'a str)
+                 _sentence: &str)
                  -> Result<Vec<ParsedNode<V>>> {
         Ok(stash.iter()
             .filter_map(|it| if let Some(v) = V::attempt_from(it.value.clone()) {

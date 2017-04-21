@@ -4,33 +4,33 @@ use ::*;
 use Precision::*;
 use helpers;
 
-pub fn rules_temperature<'a>() -> Result<RuleSet<'a, Dimension>> {
+pub fn rules_temperature() -> Result<RuleSet<Dimension>> {
     Ok(RuleSet(vec![
         rule! { 
             "number as temp", 
             (number_check!()), 
-            |a| Ok(TemperatureValue { value: a.value.value(), unit: None, latent: true}) 
+            |a| Ok(TemperatureValue { value: a.value().value(), unit: None, latent: true}) 
         },
         rule! {
             "<latent temp> degrees",
             (temperature_check!(), regex!(r#"(deg(ree?)?s?\.?)|°"#)),
-            |a, _| Ok(TemperatureValue { value: a.value.value, unit: Some("degree"), latent: false})
+            |a, _| Ok(TemperatureValue { value: a.value().value, unit: Some("degree"), latent: false})
         },
         rule! {
             "<temp> Celcius",
             (temperature_check!(), regex!(r#"c(el[cs]?(ius)?)?\.?"#)),
-            |a, _| Ok(TemperatureValue { value: a.value.value, unit: Some("celsius"), latent: false})
+            |a, _| Ok(TemperatureValue { value: a.value().value, unit: Some("celsius"), latent: false})
         },
         rule! {
             "<temp> Fahrenheit",
             (temperature_check!(), regex!(r#"f(ah?rh?eh?n(h?eit)?)?\.?"#)),
-            |a, _| Ok(TemperatureValue { value: a.value.value, unit: Some("fahrenheit"), latent: false})
+            |a, _| Ok(TemperatureValue { value: a.value().value, unit: Some("fahrenheit"), latent: false})
         },
     
     ]))
 }
 
-pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
+pub fn rules_numbers() -> Result<RuleSet<Dimension>> {
     Ok(RuleSet(vec![
         rule! {
             "intersect (with and)",
@@ -39,7 +39,7 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                 regex!(r#"and"#),
                 number_check!()
             ),
-            |a, _, b| helpers::compose_numbers(&a.value, &b.value)
+            |a, _, b| helpers::compose_numbers(&a.value(), &b.value())
         },
         rule! {
             "intersect",
@@ -47,13 +47,13 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                 number_check!(|number: &NumberValue| number.grain().unwrap_or(0) > 1),
                 number_check!()
             ),
-            |a, b| helpers::compose_numbers(&a.value, &b.value)
+            |a, b| helpers::compose_numbers(&a.value(), &b.value())
         },
         rule! { 
             "integer (0..19)", 
             (regex!(r#"(none|zilch|naught|nought|nil|zero|one|two|three|fourteen|four|five|sixteen|six|seventeen|seven|eighteen|eight|nineteen|nine|eleven|twelve|thirteen|fifteen)"#)),
             |text_match| {
-                let value = match text_match.groups[1].as_ref()  {
+                let value = match text_match.group(1).as_ref()  {
                     "none" => 0, 
                     "zilch" => 0, 
                     "naught" => 0, 
@@ -99,7 +99,7 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
             "integer (20..90)",
             (regex!(r#"(twenty|thirty|fou?rty|fifty|sixty|seventy|eighty|ninety)"#)),
             |text_match| {
-                let value = match text_match.groups[1].as_ref()  {
+                let value = match text_match.group(1).as_ref()  {
                     "twenty"  => 20,
                     "thirty"  => 30,
                     "fourty"  => 40,
@@ -119,18 +119,18 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                 integer_check!(10, 90, |integer: &IntegerValue| integer.value % 10 == 0),
                 integer_check!(1, 9)
             ),
-            |a, b| IntegerValue::new(a.value.value + b.value.value)
+            |a, b| IntegerValue::new(a.value().value + b.value().value)
         },
         rule! {
             "integer (numeric)",
             (regex!(r#"(\d{1,18})"#)),
-            |text_match| IntegerValue::new(text_match.groups[0].parse()?)
+            |text_match| IntegerValue::new(text_match.group(0).parse()?)
         },
         rule! {
             "integer with thousands separator ,",
             (regex!(r#"(\d{1,3}(,\d\d\d){1,5})"#)),
             |text_match| {
-                let reformatted_string = text_match.groups[1].replace(",", "");
+                let reformatted_string = text_match.group(1).replace(",", "");
                 let value: i64 = reformatted_string.parse()?;
                 IntegerValue::new(value)
             }
@@ -142,7 +142,7 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                 integer_check!(10, 99)
             ),
             |a, b| {
-                let value = a.value.value * 100 + b.value.value;
+                let value = a.value().value * 100 + b.value().value;
                 IntegerValue::new_with_grain(value, 1) }
             },
         rule! {
@@ -151,7 +151,7 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                 integer_check!(1, 10),
                 integer_filter!(|integer: &IntegerValue| integer.group)
             ),
-            |a, b| Ok(IntegerValue { value: a.value.value * b.value.value, grain:b.value.grain, ..IntegerValue::default() })
+            |a, b| Ok(IntegerValue { value: a.value().value * b.value().value, grain:b.value().grain, ..IntegerValue::default() })
         },
         rule! {
              "number hundreds",
@@ -159,7 +159,7 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                  integer_check!(1, 99),
                  integer_check!(100, 100)
              ),
-             |a, b| Ok(IntegerValue { value: a.value.value * b.value.value, grain:b.value.grain, ..IntegerValue::default() })
+             |a, b| Ok(IntegerValue { value: a.value().value * b.value().value, grain:b.value().grain, ..IntegerValue::default() })
         },
         rule! {
              "number thousands",
@@ -167,7 +167,7 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                  integer_check!(1, 999),
                  integer_check!(1000, 1000)
              ),
-             |a, b| Ok(IntegerValue { value: a.value.value * b.value.value, grain:b.value.grain, ..IntegerValue::default() })
+             |a, b| Ok(IntegerValue { value: a.value().value * b.value().value, grain:b.value().grain, ..IntegerValue::default() })
         },
         rule! {
              "number millions",
@@ -175,13 +175,13 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                  integer_check!(1, 99),
                  integer_check!(1000000, 1000000)
              ),
-             |a, b| Ok(IntegerValue { value: a.value.value * b.value.value, grain:b.value.grain, ..IntegerValue::default() })
+             |a, b| Ok(IntegerValue { value: a.value().value * b.value().value, grain:b.value().grain, ..IntegerValue::default() })
         },
         rule! {
              "decimal number",
              (regex!(r#"(\d*\.\d+)"#)),
              |text_match| {
-                 let value: f32 = text_match.groups[0].parse()?;
+                 let value: f32 = text_match.group(0).parse()?;
                  Ok(FloatValue { value: value, .. FloatValue::default() })
              }
         },
@@ -192,13 +192,13 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                  regex!(r#"dot|point"#),
                  number_check!(|number: &NumberValue| !number.suffixed())
              ),
-             |a, _, b| Ok(FloatValue { value: b.value.value() * 0.1 + a.value.value(), .. FloatValue::default() })
+             |a, _, b| Ok(FloatValue { value: b.value().value() * 0.1 + a.value().value(), .. FloatValue::default() })
         },
         rule! {
              "decimal with thousands separator",
              (regex!(r#"(\d+(,\d\d\d)+\.\d+)"#)),
              |text_match| {
-                 let reformatted_string = text_match.groups[1].replace(",", "");
+                 let reformatted_string = text_match.group(1).replace(",", "");
                  let value: f32 = reformatted_string.parse()?;
                  Ok(FloatValue { value: value, .. FloatValue::default() })
              }
@@ -210,7 +210,7 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                 number_check!(|number: &NumberValue| !number.prefixed())
             ),
             |_, a| -> RuleResult<NumberValue> {
-                Ok(match a.value.clone() { // checked
+                Ok(match a.value().clone() { // checked
                     NumberValue::Integer(integer) => IntegerValue {
                                                         value: integer.value * -1,
                                                         prefixed: true,
@@ -231,23 +231,30 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                 regex_neg_lh!(r#"([kmg])"#, r#"^[\W\$€]"#)
             ),
             |a, text_match| -> RuleResult<NumberValue> {
-                let multiplier = match text_match.groups[0].as_ref() {
+                let multiplier = match text_match.group(0).as_ref() {
                     "k" => 1000,
                     "m" => 1000000,
                     "g" => 1000000000,
                     _ => panic!("Unknown match"),
                 };
-                Ok(match a.value.clone() { // checked
+                Ok(match a.value().clone() { // checked
                     NumberValue::Integer(integer) => IntegerValue {
                                                         value: integer.value * multiplier,
                                                         suffixed: true,
                                                         .. integer
                                                     }.into(),
-                    NumberValue::Float(float) => FloatValue {
-                                                        value: float.value * (multiplier as f32),
+                    NumberValue::Float(float) => {
+                        let product = float.value * (multiplier as f32);
+                        if product.floor() == product {
+                            IntegerValue { value: product as i64, suffixed: true, ..IntegerValue::default() }.into()
+                        } else {
+                            FloatValue {
+                                                        value: product,
                                                         suffixed: true,
                                                         .. float
-                                                    }.into(),
+                                                    }.into()
+                        }
+                    }
                 })
             }
         },
@@ -255,7 +262,7 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
              "ordinals (first..31st)",
             (regex!(r#"(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twenty-first|twenty-second|twenty-third|twenty-fourth|twenty-fifth|twenty-sixth|twenty-seventh|twenty-eighth|twenty-ninth|thirtieth|thirty-first)"#)),
              |text_match| {
-                 let value = match text_match.groups[1].as_ref() {
+                 let value = match text_match.group(1).as_ref() {
                      "first" => 1,
                      "second" => 2,
                      "third" => 3,
@@ -298,13 +305,13 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                  integer_check!(10, 90, |integer: &IntegerValue| integer.value % 10 == 0),
                  ordinal_check!(|ordinal: &OrdinalValue| 1 <= ordinal.value && ordinal.value <= 9)
              ),
-             |integer, ordinal| Ok(OrdinalValue { value: integer.value.value + ordinal.value.value })
+             |integer, ordinal| Ok(OrdinalValue { value: integer.value().value + ordinal.value().value })
         },
         rule! {
             "ordinal (digits)",
-            (regex!(r#""0*(\d+) ?(st|nd|rd|th)""#)),
+            (regex!(r#"0*(\d+) ?(st|nd|rd|th)"#)),
             |text_match| {
-                let value: i64 = text_match.groups[1].parse()?;
+                let value: i64 = text_match.group(1).parse()?;
                 Ok(OrdinalValue { value: value })
             }
         },
@@ -314,7 +321,7 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
                 regex!(r#"the"#),
                 ordinal_check!()
             ),
-            |_, ordinal| Ok(ordinal.value)
+            |_, ordinal| Ok(*ordinal.value())
         }
     ]))
 }

@@ -39,7 +39,7 @@ pub fn train
                                    Vec<(HashMap<parser::Feat, usize>, duckling::Class)>> =
         HashMap::new();
     for ex in examples.iter() {
-        let stash = rules.apply_all(&ex.text).unwrap();
+        let stash = rules.apply_all(&ex.text.to_lowercase()).unwrap();
         let mut true_exs = vec![];
         let mut false_exs = vec![];
         for candidate in stash {

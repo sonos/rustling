@@ -25,36 +25,60 @@ fn make_production_error(s:RuleError) -> Error {
 
 }
 
-pub trait Rule<'a, StashValue: Clone> {
+pub struct RuleProductionArg<'a, M:Match + 'a> {
+    sentence: &'a str,
+    match_: &'a M,
+}
+
+impl<'a, M:Match> RuleProductionArg<'a,M> {
+    pub fn new(sentence: &'a str, match_: &'a M) -> RuleProductionArg<'a,M> {
+        RuleProductionArg {
+            sentence: sentence, match_: match_
+        }
+    }
+}
+
+impl<'a> RuleProductionArg<'a, Text> {
+    pub fn group(&self, ix:usize) -> &'a str {
+        let g = self.match_.groups[ix];
+        &self.sentence[g.0..g.1]
+    }
+}
+
+impl<'a, V:Clone> RuleProductionArg<'a, ParsedNode<V>> {
+    pub fn value(&self) -> &V {
+        &self.match_.value
+    }
+}
+
+pub trait Rule<StashValue: Clone> {
     fn apply(&self,
              stash: &Stash<StashValue>,
-             sentence: &'a str)
+             sentence: &str)
              -> Result<Vec<ParsedNode<StashValue>>>;
 }
 
-pub struct Rule1<'a, A, PA, V, StashValue, F>
+pub struct Rule1<PA, V, StashValue, F>
     where V: Clone,
           StashValue: From<V> + Clone,
-          F: Fn(&A) -> RuleResult<V>,
-          PA: Pattern<'a, A, StashValue>,
-          A: Match<'a> + 'a
+          F:for<'a>  Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V>,
+          PA: Pattern<StashValue>,
 {
     name: &'static str,
     pattern: PA,
     production: F,
-    _phantom: ::std::marker::PhantomData<(V, A, StashValue, &'a ())>,
+    _phantom: ::std::marker::PhantomData<(V, StashValue)>,
 }
 
-impl<'a, A, PA, V, StashValue, F> Rule<'a, StashValue> for Rule1<'a, A, PA, V, StashValue, F>
+impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
     where V: Clone,
           StashValue: From<V> + Clone,
-          F: Fn(&A) -> RuleResult<V>,
-          PA: Pattern<'a, A, StashValue>,
-          A: Match<'a> + 'a
+          F:for<'a>  Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V>,
+          PA: Pattern<StashValue>,
 {
     fn apply(&self,
              stash: &Stash<StashValue>,
-             sentence: &'a str)
+             sentence: &str)
              -> Result<Vec<ParsedNode<StashValue>>> {
         let matches = self.matches(&stash, sentence)?;
         matches.iter()
@@ -64,7 +88,7 @@ impl<'a, A, PA, V, StashValue, F> Rule<'a, StashValue> for Rule1<'a, A, PA, V, S
                     old_node.root_node.children != nodes ||
                     old_node.root_node.rule_name != self.name
                 }) {
-                    match (self.production)(sub) {
+                    match (self.production)(&RuleProductionArg::new(sentence,sub)) {
                         Ok(v) => {
                             Some(Ok(ParsedNode::new(self.name,
                                                     StashValue::from(v),
@@ -81,14 +105,13 @@ impl<'a, A, PA, V, StashValue, F> Rule<'a, StashValue> for Rule1<'a, A, PA, V, S
     }
 }
 
-impl<'a, A, PA, V, StashValue, F> Rule1<'a, A, PA, V, StashValue, F>
+impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
     where V: Clone,
           StashValue: From<V> + Clone,
-          F: Fn(&A) -> RuleResult<V>,
-          PA: Pattern<'a, A, StashValue>,
-          A: Match<'a>
+          F:for<'a>  Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V>,
+          PA: Pattern<StashValue>,
 {
-    pub fn new(name: &'static str, pat: PA, prod: F) -> Rule1<'a, A, PA, V, StashValue, F> {
+    pub fn new(name: &'static str, pat: PA, prod: F) -> Rule1<PA, V, StashValue, F> {
         Rule1 {
             name: name,
             pattern: pat,
@@ -97,44 +120,40 @@ impl<'a, A, PA, V, StashValue, F> Rule1<'a, A, PA, V, StashValue, F>
         }
     }
 
-    fn matches(&self, stash: &Stash<StashValue>, sentence: &'a str) -> Result<Vec<A>> {
+    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> Result<Vec<PA::M>> {
         self.pattern.predicate(stash, sentence)
     }
 }
 
-fn adjacent<'a, A: Match<'a>, B: Match<'a>>(a: &A, b: &B, sentence: &'a str) -> bool {
+fn adjacent<A: Match, B: Match>(a: &A, b: &B, sentence: &str) -> bool {
     a.range().1 <= b.range().0 &&
     sentence[a.range().1..b.range().0].chars().all(|c| c.is_whitespace() || c == '-')
 }
 
-pub struct Rule2<'a, A: 'a, B: 'a, PA, PB, V, StashValue, F>
+pub struct Rule2<PA, PB, V, StashValue, F>
     where V: Clone,
           StashValue: From<V> + Clone,
-          F: Fn(&A, &B) -> RuleResult<V>,
-          PA: Pattern<'a, A, StashValue>,
-          A: Match<'a>,
-          PB: Pattern<'a, B, StashValue>,
-          B: Match<'a>
+          F:for<'a>  Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V>,
+          PA: Pattern<StashValue>,
+          PB: Pattern<StashValue>,
 {
     name: &'static str,
     pattern: (PA, PB),
     production: F,
-    _phantom: ::std::marker::PhantomData<(V, A, B, StashValue, &'a ())>,
+    _phantom: ::std::marker::PhantomData<(V,  StashValue)>,
 }
 
-impl<'a, A, PA, B, PB, V, StashValue, F> Rule<'a, StashValue>
-    for Rule2<'a, A, B, PA, PB, V, StashValue, F>
+impl<PA, PB, V, StashValue, F> Rule<StashValue>
+    for Rule2<PA, PB, V, StashValue, F>
     where V: Clone,
           StashValue: From<V> + Clone,
-          F: Fn(&A, &B) -> RuleResult<V>,
-          PA: Pattern<'a, A, StashValue>,
-          A: Match<'a>,
-          PB: Pattern<'a, B, StashValue>,
-          B: Match<'a>
+          F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V>,
+          PA: Pattern<StashValue>,
+          PB: Pattern<StashValue>,
 {
     fn apply(&self,
              stash: &Stash<StashValue>,
-             sentence: &'a str)
+             sentence: &str)
              -> Result<Vec<ParsedNode<StashValue>>> {
         let matches = self.matches(&stash, sentence)?;
         matches.iter()
@@ -145,7 +164,7 @@ impl<'a, A, PA, B, PB, V, StashValue, F> Rule<'a, StashValue>
                     old_node.root_node.rule_name != self.name
                 }) {
                     let range = Range(sub.0.range().0, sub.1.range().1);
-                    match (self.production)(&sub.0, &sub.1) {
+                    match (self.production)(&RuleProductionArg::new(sentence, &sub.0), &RuleProductionArg::new(sentence, &sub.1)) {
                         Ok(v) => {
                             Some(Ok(ParsedNode::new(self.name,
                                                     v.into(),
@@ -163,19 +182,17 @@ impl<'a, A, PA, B, PB, V, StashValue, F> Rule<'a, StashValue>
     }
 }
 
-impl<'a, A, PA, B, PB, V, StashValue, F> Rule2<'a, A, B, PA, PB, V, StashValue, F>
+impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
     where V: Clone,
           StashValue: From<V> + Clone,
-          F: Fn(&A, &B) -> RuleResult<V>,
-          PA: Pattern<'a, A, StashValue>,
-          A: Match<'a>,
-          PB: Pattern<'a, B, StashValue>,
-          B: Match<'a>
+          F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V>,
+          PA: Pattern<StashValue>,
+          PB: Pattern<StashValue>,
 {
     pub fn new(name: &'static str,
                pat: (PA, PB),
                prod: F)
-               -> Rule2<'a, A, B, PA, PB, V, StashValue, F> {
+               -> Rule2<PA, PB, V, StashValue, F> {
         Rule2 {
             name: name,
             pattern: pat,
@@ -184,10 +201,10 @@ impl<'a, A, PA, B, PB, V, StashValue, F> Rule2<'a, A, B, PA, PB, V, StashValue, 
         }
     }
 
-    fn matches(&self, stash: &Stash<StashValue>, sentence: &'a str) -> Result<Vec<(A, B)>> {
+    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> Result<Vec<(PA::M, PB::M)>> {
         let matches_0 = self.pattern.0.predicate(stash, sentence)?;
         let matches_1 = self.pattern.1.predicate(stash, sentence)?;
-        let mut result: Vec<(A, B)> = vec![];
+        let mut result = vec![];
         for m0 in matches_0.iter() {
             for m1 in matches_1.iter() {
                 if adjacent(m0, m1, sentence) {
@@ -199,38 +216,32 @@ impl<'a, A, PA, B, PB, V, StashValue, F> Rule2<'a, A, B, PA, PB, V, StashValue, 
     }
 }
 
-pub struct Rule3<'a, A: 'a, B: 'a, C: 'a, PA, PB, PC, V, StashValue, F>
+pub struct Rule3<PA, PB, PC, V, StashValue, F>
     where V: Clone,
           StashValue: From<V> + Clone,
-          F: Fn(&'a A, &'a B, &'a C) -> RuleResult<V>,
-          PA: Pattern<'a, A, StashValue>,
-          A: Match<'a>,
-          PB: Pattern<'a, B, StashValue>,
-          B: Match<'a>,
-          PC: Pattern<'a, C, StashValue>,
-          C: Match<'a>
+          F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>, &RuleProductionArg<'a, PC::M>) -> RuleResult<V>,
+          PA: Pattern<StashValue>,
+          PB: Pattern<StashValue>,
+          PC: Pattern<StashValue>,
 {
     name: &'static str,
     pattern: (PA, PB, PC),
     production: F,
-    _phantom: ::std::marker::PhantomData<(V, A, B, C, StashValue, &'a ())>,
+    _phantom: ::std::marker::PhantomData<(V, StashValue)>,
 }
 
-impl<'a, A, PA, B, PB, C, PC, V, StashValue, F> Rule<'a, StashValue>
-    for Rule3<'a, A, B, C, PA, PB, PC, V, StashValue, F>
+impl<PA, PB, PC, V, StashValue, F> Rule<StashValue>
+    for Rule3<PA, PB, PC, V, StashValue, F>
     where V: Clone,
           StashValue: From<V> + Clone,
-          F: Fn(&A, &B, &C) -> RuleResult<V>,
-          PA: Pattern<'a, A, StashValue>,
-          A: Match<'a>,
-          PB: Pattern<'a, B, StashValue>,
-          B: Match<'a>,
-          PC: Pattern<'a, C, StashValue>,
-          C: Match<'a>
+          F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>, &RuleProductionArg<'a, PC::M>) -> RuleResult<V>,
+          PA: Pattern<StashValue>,
+          PB: Pattern<StashValue>,
+          PC: Pattern<StashValue>,
 {
     fn apply(&self,
              stash: &Stash<StashValue>,
-             sentence: &'a str)
+             sentence: &str)
              -> Result<Vec<ParsedNode<StashValue>>> {
         let matches = self.matches(&stash, sentence)?;
         matches.iter()
@@ -241,7 +252,7 @@ impl<'a, A, PA, B, PB, C, PC, V, StashValue, F> Rule<'a, StashValue>
                     old_node.root_node.rule_name != self.name
                 }) {
                     let range = Range(sub.0.range().0, sub.2.range().1);
-                    match (self.production)(&sub.0, &sub.1, &sub.2) {
+                    match (self.production)(&RuleProductionArg::new(sentence, &sub.0), &RuleProductionArg::new(sentence, &sub.1), &RuleProductionArg::new(sentence, &sub.2)) {
                         Ok(v) => Some(Ok(ParsedNode::new(self.name, v.into(), range, nodes))),
                         Err(e) => Some(Err(make_production_error(e))),
                     }
@@ -253,21 +264,18 @@ impl<'a, A, PA, B, PB, C, PC, V, StashValue, F> Rule<'a, StashValue>
     }
 }
 
-impl<'a, A, PA, B, PB, C, PC, V, StashValue, F> Rule3<'a, A, B, C, PA, PB, PC, V, StashValue, F>
+impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
     where V: Clone,
           StashValue: From<V> + Clone,
-          F: Fn(&A, &B, &C) -> RuleResult<V>,
-          PA: Pattern<'a, A, StashValue>,
-          A: Match<'a>,
-          PB: Pattern<'a, B, StashValue>,
-          B: Match<'a>,
-          PC: Pattern<'a, C, StashValue>,
-          C: Match<'a>
+          F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>, &RuleProductionArg<'a, PC::M>) -> RuleResult<V>,
+          PA: Pattern<StashValue>,
+          PB: Pattern<StashValue>,
+          PC: Pattern<StashValue>,
 {
     pub fn new(name: &'static str,
                pat: (PA, PB, PC),
                prod: F)
-               -> Rule3<'a, A, B, C, PA, PB, PC, V, StashValue, F> {
+               -> Rule3<PA, PB, PC, V, StashValue, F> {
         Rule3 {
             name: name,
             pattern: pat,
@@ -276,11 +284,11 @@ impl<'a, A, PA, B, PB, C, PC, V, StashValue, F> Rule3<'a, A, B, C, PA, PB, PC, V
         }
     }
 
-    fn matches(&self, stash: &Stash<StashValue>, sentence: &'a str) -> Result<Vec<(A, B, C)>> {
+    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> Result<Vec<(PA::M, PB::M, PC::M)>> {
         let matches_0 = self.pattern.0.predicate(stash, sentence)?;
         let matches_1 = self.pattern.1.predicate(stash, sentence)?;
         let matches_2 = self.pattern.2.predicate(stash, sentence)?;
-        let mut result: Vec<(A, B, C)> = vec![];
+        let mut result = vec![];
         for m0 in matches_0.iter() {
             for m1 in matches_1.iter() {
                 if adjacent(m0, m1, sentence) {
@@ -317,19 +325,19 @@ mod tests {
     #[test]
     fn test_integer_numeric_en_rule() {
         let rule = rule! { "ten", (reg!(usize, "ten")), |_| Ok(10usize) };
-        assert_eq!(vec![Text(svec!["ten".into()], (8, 11), "ten")],
+        assert_eq!(vec![Text::new(svec![Range(8,11)], Range(8, 11), "ten")],
                    rule.matches(&vec![], "foobar: ten").unwrap());
-        assert_eq!(vec![Text(svec!["ten".into()], (8, 11), "ten"),
-                        Text(svec!["ten".into()], (12, 15), "ten")],
+        assert_eq!(vec![Text::new(svec![Range(8,11)], Range(8, 11), "ten"),
+                        Text::new(svec![Range(12, 15)], Range(12, 15), "ten")],
                    rule.matches(&vec![], "foobar: ten ten").unwrap());
         assert_eq!(vec![ParsedNode::new("ten",
                                         10,
-                                        (8, 11),
-                                        vec![Node::new("ten", (8, 11), vec![])]),
+                                        Range(8, 11),
+                                        vec![Node::new("ten", Range(8, 11), vec![])]),
                         ParsedNode::new("ten",
                                         10,
-                                        (12, 15),
-                                        vec![Node::new("ten", (12, 15), vec![])])],
+                                        Range(12, 15),
+                                        vec![Node::new("ten", Range(12, 15), vec![])])],
                    rule.apply(&vec![], "foobar: ten ten").unwrap())
     }
 
@@ -338,15 +346,15 @@ mod tests {
         let rule_consec = rule! {
             "2 consecutive ints",
             (dim!(usize), dim!(usize, vec![Box::new(|integer: &usize| *integer == 10)])),
-            |a,b| Ok(a.value+b.value)
+            |a,b| Ok(a.value()+b.value())
         };
-        let stash: Stash<usize> = vec![ParsedNode::new("ten", 10, (8, 11), vec![]),
-                                       ParsedNode::new("ten", 10, (12, 15), vec![])];
+        let stash: Stash<usize> = vec![ParsedNode::new("ten", 10, Range(8, 11), vec![]),
+                                       ParsedNode::new("ten", 10, Range(12, 15), vec![])];
         assert_eq!(vec![(stash[0].clone(), stash[1].clone())],
                    rule_consec.matches(&stash, "foobar: ten ten").unwrap());
         assert_eq!(vec![ParsedNode::new("2 consecutive ints",
                                         20,
-                                        (8, 15),
+                                        Range(8, 15),
                                         vec![stash[0].root_node.clone(),
                                              stash[1].root_node.clone()])],
                    rule_consec.apply(&stash, "foobar: ten ten").unwrap());
@@ -356,11 +364,11 @@ mod tests {
     fn test_integer_numeric_int_rule() {
         use std::str::FromStr;
         let rule_int = rule! { "int", (reg!(usize, "\\d+")),
-            |a| Ok(usize::from_str(&*a.0[0])?) };
+            |a| Ok(usize::from_str(&*a.group(0))?) };
         assert_eq!(vec![ParsedNode::new("int",
                                         42,
-                                        (8, 10),
-                                        vec![Node::new("\\d+", (8, 10), vec![])])],
+                                        Range(8, 10),
+                                        vec![Node::new("\\d+", Range(8, 10), vec![])])],
                    rule_int.apply(&vec![], "foobar: 42").unwrap());
     }
 

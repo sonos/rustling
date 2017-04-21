@@ -13,7 +13,7 @@ use duckling::errors::DucklingResult;
 pub struct Feat(Vec<&'static str>);
 impl ml::Feature for Feat {}
 
-pub fn build_parser_en<'a>() -> DucklingResult<duckling::Parser<'a,Dimension, Feat, FeatureExtractor>> {
+pub fn build_parser_en() -> DucklingResult<duckling::Parser<Dimension, Feat, FeatureExtractor>> {
     let rules = en::rules_numbers()?;
     let exs = ::examples::examples_en_numbers();
     let model = ::examples::train(&rules, exs)?;

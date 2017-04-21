@@ -71,21 +71,21 @@ pub trait FeatureExtractor<V: Value, Feat: ml::Feature> {
     fn extract_features(node: &ParsedNode<V>) -> ml::Input<Id, Feat>;
 }
 
-pub struct Parser<'a, V: Value, Feat: ml::Feature, Extractor: FeatureExtractor<V, Feat>> {
-    rules: core::RuleSet<'a, V>,
+pub struct Parser<V: Value, Feat: ml::Feature, Extractor: FeatureExtractor<V, Feat>> {
+    rules: core::RuleSet<V>,
     model: ml::Model<Id, Class, Feat>,
     extractor: ::std::marker::PhantomData<Extractor>,
 }
 
-impl<'a, V, Feat, Extractor> Parser<'a, V, Feat, Extractor>
+impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
     where V: Value,
           Id: ml::ClassifierId,
           Feat: ml::Feature,
           Extractor: FeatureExtractor<V, Feat>
 {
-    pub fn new(rules: core::RuleSet<'a, V>,
+    pub fn new(rules: core::RuleSet<V>,
                model: ml::Model<Id, Class, Feat>)
-               -> Parser<'a, V, Feat, Extractor> {
+               -> Parser<V, Feat, Extractor> {
         Parser {
             rules: rules,
             model: model,
@@ -93,7 +93,7 @@ impl<'a, V, Feat, Extractor> Parser<'a, V, Feat, Extractor>
         }
     }
 
-    fn raw_candidates(&self, input: &'a str) -> DucklingResult<Vec<(ParsedNode<V>, ParserMatch<V>)>> {
+    fn raw_candidates(&self, input: &str) -> DucklingResult<Vec<(ParsedNode<V>, ParserMatch<V>)>> {
         self.rules
             .apply_all(input)?
             .into_iter()
@@ -111,7 +111,7 @@ impl<'a, V, Feat, Extractor> Parser<'a, V, Feat, Extractor>
 
     pub fn candidates<S: Fn(&V) -> Option<usize>>
         (&self,
-         input: &'a str,
+         input: &str,
          dimension_prio: S)
          -> DucklingResult<Vec<(ParsedNode<V>, ParserMatch<V>, Option<usize>, bool)>> {
         let candidates = self.raw_candidates(input)?
@@ -128,7 +128,7 @@ impl<'a, V, Feat, Extractor> Parser<'a, V, Feat, Extractor>
     }
 
     pub fn parse<S: Fn(&V) -> Option<usize>>(&self,
-                                             input: &'a str,
+                                             input: &str,
                                              dimension_prio: S)
                                              -> DucklingResult<Vec<ParserMatch<V>>> {
         Ok(self.candidates(input, dimension_prio)?

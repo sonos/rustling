@@ -91,10 +91,10 @@ impl<V: Clone> ParsedNode<V> {
 
 pub type Stash<V> = Vec<ParsedNode<V>>;
 
-pub struct RuleSet<'a, StashValue: Clone>(pub Vec<Box<Rule<'a, StashValue> + 'a>>);
+pub struct RuleSet<StashValue: Clone>(pub Vec<Box<Rule<StashValue>>>);
 
-impl<'a, V: Clone> RuleSet<'a, V> {
-    fn apply_once(&self, stash: &mut Stash<V>, sentence: &'a str) -> Result<()> {
+impl<V: Clone> RuleSet<V> {
+    fn apply_once(&self, stash: &mut Stash<V>, sentence: &str) -> Result<()> {
         let mut produced_nodes = vec!();
         for rule in &self.0 {
             produced_nodes.extend(rule.apply(stash, sentence)?);
@@ -103,7 +103,7 @@ impl<'a, V: Clone> RuleSet<'a, V> {
         Ok(())
     }
 
-    pub fn apply_all(&self, sentence: &'a str) -> Result<Stash<V>> {
+    pub fn apply_all(&self, sentence: &str) -> Result<Stash<V>> {
         let iterations_max = 10;
         let max_stash_size = 600;
         let mut stash = vec![];
@@ -139,7 +139,7 @@ mod tests {
         let rule = rule! {
             "integer (numeric)",
             (reg!(usize, r#"(\d{1,18})"#)),
-            |text_match| Ok(text_match.0[0].parse::<usize>()?)
+            |text_match| Ok(text_match.group(0).parse::<usize>()?)
         };
         let rule_set = RuleSet(vec![rule]);
         let mut stash = vec![];
@@ -148,11 +148,11 @@ mod tests {
         assert_eq!(42, stash[0].value);
     }
 
-    fn rules<'a>() -> RuleSet<'a, usize> {
+    fn rules() -> RuleSet<usize> {
         let rule = rule! {
             "integer (numeric)",
             (reg!(usize, r#"(\d{1,18})"#)),
-            |text_match| Ok(text_match.0[0].parse::<usize>()?)
+            |text_match| Ok(text_match.group(0).parse::<usize>()?)
         };
         let rule_thousand = rule! {
             "integer (thousand)",
@@ -163,7 +163,7 @@ mod tests {
             "number thousands",
             (   dim!(usize, vec!(Box::new(|a:&usize| *a > 1 && *a < 99))),
                 dim!(usize, vec!(Box::new(|a:&usize| *a == 1000)))),
-            |a,_| Ok(a.value*1000)
+            |a,_| Ok(a.value()*1000)
         };
         let rule_set = RuleSet(vec![rule, rule_compo, rule_thousand]);
         rule_set
@@ -181,16 +181,16 @@ mod tests {
     #[test]
     fn test_integer_numeric_infix_rule() {
         let rule_int =
-            rule! { "int", (reg!(usize, "\\d+")), |a| Ok(usize::from_str(&*a.0[0])?) };
+            rule! { "int", (reg!(usize, "\\d+")), |a| Ok(usize::from_str(&*a.group(0))?) };
         let rule_add = rule! {
             "add",
             (dim!(usize), reg!(usize, "\\+"), dim!(usize)),
-            |a,_,b| Ok(a.value+b.value)
+            |a,_,b| Ok(a.value()+b.value())
         };
         let rule_mul = rule! {
             "mul",
             (dim!(usize), reg!(usize, "\\*"), dim!(usize)),
-            |a,_,b| Ok(a.value*b.value)
+            |a,_,b| Ok(a.value()*b.value())
         };
         let rule_set = RuleSet(vec![rule_int, rule_add, rule_mul]);
         let results = rule_set.apply_all("foo: 12 + 42, 12* 42").unwrap();
@@ -206,12 +206,12 @@ mod tests {
     #[test]
     fn test_with_enum_value() {
         let int = rule! { "int", (reg!(Value, "\\d+")),
-                |a| Ok(usize::from_str(&*a.0[0])?) };
+                |a| Ok(usize::from_str(&*a.group(0))?) };
         let fp = rule! { "fp", (reg!(Value, "\\d+.\\d+")),
-                |a| Ok(f32::from_str(&*a.0[0])?) };
+                |a| Ok(f32::from_str(&*a.group(0))?) };
         let pow = rule! { "pow",
             (dim!(f32), reg!(Value, "\\^"), dim!(usize)),
-           |a,_,b| Ok(a.value.powi(b.value as i32)) };
+           |a,_,b| Ok(a.value().powi(*b.value() as i32)) };
         let rule_set = RuleSet(vec![int, fp, pow]);
         let results = rule_set.apply_all("foo: 1.5^2").unwrap();
         let values: Vec<_> = results.into_iter().map(|pn| pn.value).collect();
