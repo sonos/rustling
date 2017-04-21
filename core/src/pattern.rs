@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 use errors::*;
 use ::*;
 
-#[derive(PartialEq,Clone,Debug,Copy)]
+#[derive(PartialEq,Clone,Debug,Copy,Hash,Eq)]
 pub struct Range(pub usize, pub usize);
 
 impl Range {

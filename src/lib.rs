@@ -7,6 +7,8 @@ use ::std::cmp::{PartialOrd, Ordering};
 
 use errors::*;
 
+pub use core::ParsedNode;
+
 pub mod errors {
     error_chain! {
         links {
@@ -25,7 +27,7 @@ pub struct Id(pub &'static str);
 impl ml::ClassifierId for Id {}
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
-pub struct Class(bool);
+pub struct Class(pub bool);
 impl ml::ClassId for Class {}
 
 pub trait Value: Clone + PartialEq + ::std::fmt::Debug + ::std::fmt::Display {
@@ -39,8 +41,8 @@ pub struct ParserMatch<V: Value> {
     pub probalog: f32,
 }
 
-fn match_cmp<V>(a: &(core::ParsedNode<V>, ParserMatch<V>, Option<usize>),
-                b: &(core::ParsedNode<V>, ParserMatch<V>, Option<usize>))
+fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
+                b: &(ParsedNode<V>, ParserMatch<V>, Option<usize>))
                 -> Option<Ordering>
     where V: Value
 {
@@ -63,7 +65,7 @@ fn match_cmp<V>(a: &(core::ParsedNode<V>, ParserMatch<V>, Option<usize>),
 }
 
 pub trait FeatureExtractor<V: Value, Feat: ml::Feature> {
-    fn extract_features(node: &core::ParsedNode<V>) -> ml::Input<Id, Feat>;
+    fn extract_features(node: &ParsedNode<V>) -> ml::Input<Id, Feat>;
 }
 
 pub struct Parser<'a, V: Value, Feat: ml::Feature, Extractor: FeatureExtractor<V, Feat>> {
@@ -88,7 +90,7 @@ impl<'a, V, Feat, Extractor> Parser<'a, V, Feat, Extractor>
         }
     }
 
-    fn raw_candidates(&self, input: &'a str) -> Result<Vec<(core::ParsedNode<V>, ParserMatch<V>)>> {
+    fn raw_candidates(&self, input: &'a str) -> Result<Vec<(ParsedNode<V>, ParserMatch<V>)>> {
         self.rules
             .apply_all(input)?
             .into_iter()
@@ -108,7 +110,7 @@ impl<'a, V, Feat, Extractor> Parser<'a, V, Feat, Extractor>
         (&self,
          input: &'a str,
          dimension_prio: S)
-         -> Result<Vec<(core::ParsedNode<V>, ParserMatch<V>, Option<usize>, bool)>> {
+         -> Result<Vec<(ParsedNode<V>, ParserMatch<V>, Option<usize>, bool)>> {
         let candidates = self.raw_candidates(input)?
             .into_iter()
             .map(|(pn, pm)| {
@@ -151,10 +153,6 @@ fn tag_maximal_elements<I, CMP: Fn(&I, &I) -> Option<Ordering>>(values: Vec<I>,
     values.into_iter().zip(mask.into_iter()).collect()
 }
 
-fn maximal_elements<I, CMP: Fn(&I, &I) -> Option<Ordering>>(values: Vec<I>, cmp: CMP) -> Vec<I> {
-    tag_maximal_elements(values, cmp).into_iter().filter(|&(_, m)| m).map(|(a, _)| a).collect()
-}
-
 
 #[cfg(test)]
 mod tests {
@@ -180,6 +178,10 @@ mod tests {
         assert_eq!(cmp(&"aa", &"aa"), Some(Ordering::Equal));
         assert_eq!(cmp(&"aaa", &"aa"), Some(Ordering::Greater));
         assert_eq!(cmp(&"ab", &"aa"), None);
+    }
+
+    fn maximal_elements<I, CMP: Fn(&I, &I) -> Option<Ordering>>(values: Vec<I>, cmp: CMP) -> Vec<I> {
+        super::tag_maximal_elements(values, cmp).into_iter().filter(|&(_, m)| m).map(|(a, _)| a).collect()
     }
 
     #[test]

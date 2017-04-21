@@ -7,6 +7,7 @@ use core::AttemptFrom;
 #[macro_use]
 mod macros;
 mod helpers;
+mod examples;
 pub mod en;
 pub mod parser;
 
@@ -98,6 +99,20 @@ impl AttemptFrom<Dimension> for IntegerValue {
         if let Dimension::Number(value) = v {
             if let NumberValue::Integer(integer) = value {
                 Some(integer)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+
+impl AttemptFrom<Dimension> for FloatValue {
+    fn attempt_from(v: Dimension) -> Option<FloatValue> {
+        if let Dimension::Number(value) = v {
+            if let NumberValue::Float(float) = value {
+                Some(float)
             } else {
                 None
             }

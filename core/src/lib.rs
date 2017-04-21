@@ -55,7 +55,7 @@ pub trait AttemptFrom<V>: Sized {
     fn attempt_from(v: V) -> Option<Self>;
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct Node {
     pub rule_name: &'static str,
     pub range: Range,

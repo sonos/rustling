@@ -13,7 +13,10 @@ pub struct Feat(Vec<&'static str>);
 impl ml::Feature for Feat {}
 
 pub fn build_parser_en<'a>() -> Result<duckling::Parser<'a,Dimension, Feat, FeatureExtractor>> {
-    Ok(duckling::Parser::new(en::rules_numbers()?, ml::Model { classifiers: HashMap::new() }))
+    let rules = en::rules_numbers()?;
+    let exs = ::examples::examples_en_numbers();
+    let model = ::examples::train(&rules, &exs);
+    Ok(duckling::Parser::new(rules, model))
 }
 
 pub struct FeatureExtractor();
@@ -24,7 +27,7 @@ impl duckling::FeatureExtractor<Dimension, Feat> for FeatureExtractor {
     }
 }
 
-fn extract_node_features(node:&core::Node) -> Input<duckling::Id, Feat> {
+pub fn extract_node_features(node:&core::Node) -> Input<duckling::Id, Feat> {
     let features = vec![
         Feat(node.children.iter().map({ |child| child.rule_name }).collect())
     ];

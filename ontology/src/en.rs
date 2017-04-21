@@ -86,7 +86,7 @@ pub fn rules_numbers<'a>() -> Result<RuleSet<'a, Dimension>> {
         },
         rule! { "ten", (regex!(r#"ten"#)), |_| IntegerValue::new_with_grain(10, 1) },
         rule! { "single", (regex!(r#"single"#)), |_| IntegerValue::new_with_grain(1, 1) },
-        rule! { "a pair", (regex!(r#"a pair( of)?"#)), |_| IntegerValue::new_with_grain(2, 1) },
+        rule! { "a pair", (regex!(r#"a pair(?: of)?"#)), |_| IntegerValue::new_with_grain(2, 1) },
         rule! { "dozen", (regex!(r#"dozen"#)), |_| IntegerValue::new_with_grain(12, 1) },
         rule! { "hundred", (regex!(r#"hundreds?"#)), |_| IntegerValue::new_with_grain(100, 2) },
         rule! { "thousand", (regex!(r#"thousands?"#)), |_| IntegerValue::new_with_grain(1000, 3) },
