@@ -23,12 +23,12 @@ pub fn train<V: ::Value, F: ::Feature, E: ::FeatureExtractor<V,F>>
     (rules: &::RuleSet<V>,
      examples: Vec<Example<V>>,
      feature_extractor: E)
-     -> ::errors::DucklingResult<::Model<::Id, ::Class, F>> {
+     -> ::errors::DucklingResult<::Model<::RuleId, ::Truth, F>> {
     use std::collections::HashMap;
     use std::collections::HashSet;
     use core::Node;
-    let mut classified_ex: HashMap<::Id,
-                                   Vec<(HashMap<F, usize>, ::Class)>> =
+    let mut classified_ex: HashMap<::RuleId,
+                                   Vec<(HashMap<F, usize>, ::Truth)>> =
         HashMap::new();
     for ex in examples.iter() {
         let stash = rules.apply_all(&ex.text.to_lowercase()).unwrap();
@@ -67,15 +67,15 @@ pub fn train<V: ::Value, F: ::Feature, E: ::FeatureExtractor<V,F>>
         }
 
         // - put node counted features, with truth value in the trainable hashmaps
-        for  (mut nodes, truth) in vec![(positive_nodes, true),(negative_nodes, false)].into_iter() {
+        for  (nodes, truth) in vec![(positive_nodes, true),(negative_nodes, false)].into_iter() {
             for n in nodes.into_iter() {
                 let mut counted_features = HashMap::new();
                 for f in feature_extractor.for_node(&n).features {
                     *counted_features.entry(f).or_insert(0) += 1;
                 }
-                classified_ex.entry(::Id(n.rule_name))
+                classified_ex.entry(::RuleId(n.rule_name))
                     .or_insert(vec![])
-                    .push((counted_features, ::Class(truth)));
+                    .push((counted_features, ::Truth(truth)));
             }
         }
     }

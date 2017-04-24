@@ -1,6 +1,4 @@
-use core::RuleSet;
-use core::{ Stash, ParsedNode, Node };
-use ml::*;
+use duckling::*;
 use ::*;
 use en;
 use core::errors::*;
@@ -23,15 +21,15 @@ pub fn build_parser_en() -> DucklingResult<duckling::Parser<Dimension, Feat, Fea
 pub struct FeatureExtractor();
 
 impl duckling::FeatureExtractor<Dimension, Feat> for FeatureExtractor {
-    fn for_parsed_node(&self, node:&ParsedNode<Dimension>) -> Input<duckling::Id, Feat> {
+    fn for_parsed_node(&self, node:&ParsedNode<Dimension>) -> ml::Input<duckling::RuleId, Feat> {
         self.for_node(&node.root_node)
     }
-    fn for_node(&self, node:&Node) -> Input<duckling::Id, Feat> {
+    fn for_node(&self, node:&Node) -> ml::Input<duckling::RuleId, Feat> {
         extract_node_features(&node)
     }
 }
 
-pub fn extract_node_features(node:&core::Node) -> Input<duckling::Id, Feat> {
+pub fn extract_node_features(node:&core::Node) -> ml::Input<duckling::RuleId, Feat> {
     let features = vec![
         Feat(node.children.iter().map({ |child| child.rule_name }).collect())
     ];
@@ -41,8 +39,8 @@ pub fn extract_node_features(node:&core::Node) -> Input<duckling::Id, Feat> {
         .map({ |child| extract_node_features(child) })
         .collect();
 
-    Input {
-        classifier_id: duckling::Id(node.rule_name),
+    ml::Input {
+        classifier_id: duckling::RuleId(node.rule_name),
         features: features,
         children: children_features,
     }

@@ -29,12 +29,12 @@ pub mod errors {
 }
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
-pub struct Id(pub &'static str);
-impl ml::ClassifierId for Id {}
+pub struct RuleId(pub &'static str);
+impl ml::ClassifierId for RuleId {}
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
-pub struct Class(pub bool);
-impl ml::ClassId for Class {}
+pub struct Truth(pub bool);
+impl ml::ClassId for Truth {}
 
 pub trait Value: Clone + PartialEq + ::std::fmt::Debug + ::std::fmt::Display {
     fn same_dimension_as(&self, other: &Self) -> bool;
@@ -71,24 +71,24 @@ fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
 }
 
 pub trait FeatureExtractor<V: Value, Feat: ml::Feature> {
-    fn for_parsed_node(&self, node:&ParsedNode<V>) -> ml::Input<Id, Feat>;
-    fn for_node(&self, node:&Node) -> ml::Input<Id, Feat>;
+    fn for_parsed_node(&self, node:&ParsedNode<V>) -> ml::Input<RuleId, Feat>;
+    fn for_node(&self, node:&Node) -> ml::Input<RuleId, Feat>;
 }
 
 pub struct Parser<V: Value, Feat: ml::Feature, Extractor: FeatureExtractor<V, Feat>> {
     rules: core::RuleSet<V>,
-    model: ml::Model<Id, Class, Feat>,
+    model: ml::Model<RuleId, Truth, Feat>,
     extractor: Extractor,
 }
 
 impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
     where V: Value,
-          Id: ml::ClassifierId,
+          RuleId: ml::ClassifierId,
           Feat: ml::Feature,
           Extractor: FeatureExtractor<V, Feat>
 {
     pub fn new(rules: core::RuleSet<V>,
-               model: ml::Model<Id, Class, Feat>,
+               model: ml::Model<RuleId, Truth, Feat>,
                extractor: Extractor
                )
                -> Parser<V, Feat, Extractor> {
@@ -104,8 +104,8 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
             .apply_all(input)?
             .into_iter()
             .map(|p| {
-                let features: ml::Input<Id, Feat> = self.extractor.for_parsed_node(&p);
-                let probalog = self.model.classify(&features, &Class(true))?;
+                let features: ml::Input<RuleId, Feat> = self.extractor.for_parsed_node(&p);
+                let probalog = self.model.classify(&features, &Truth(true))?;
                 let pm = ParserMatch {
                         range: p.root_node.range,
                         value: p.value.clone(),
