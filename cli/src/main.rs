@@ -4,6 +4,7 @@ extern crate duckling_ontology;
 #[macro_use]
 extern crate prettytable;
 use prettytable::Table;
+use ::std::cmp::min;
 
 fn main() {
     let matches = clap_app!(duckling_cli =>
@@ -41,9 +42,12 @@ fn main() {
                                        .root_node
                                        .children
                                        .iter()
-                                       .map(|n| n.rule_name)
+                                       .map(|n| {
+                                          let max_length = min(20, n.rule_name.len());
+                                          &n.rule_name[..max_length]
+                                        })
                                        .collect::<Vec<_>>()
-                                       .join("+")]);
+                                       .join(" + ")]);
             }
             table.printstd();
         }

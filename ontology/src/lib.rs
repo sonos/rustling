@@ -33,7 +33,12 @@ impl duckling::Value for Dimension {
 impl ::std::fmt::Display for Dimension {
     fn fmt(&self, fmt:&mut ::std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         match self {
-            &Dimension::Number(_) => write!(fmt, "Number"),
+            &Dimension::Number(ref number) => {
+                match number {
+                    &NumberValue::Integer(ref v) => write!(fmt, "Number: {}", v.value),
+                    &NumberValue::Float(ref v) => write!(fmt, "Number: {}", v.value)
+                }
+            },
             &Dimension::Ordinal(_) => write!(fmt, "Ordinal"),
             &Dimension::Temperature(_) => write!(fmt, "Temperature"),
         }
