@@ -1,6 +1,7 @@
 use duckling::*;
 use ::*;
 use en;
+use fr;
 use core::errors::*;
 use std::collections::HashMap;
 use core::pattern::Range;
@@ -13,9 +14,16 @@ impl ml::Feature for Feat {}
 
 pub fn build_parser_en() -> DucklingResult<duckling::Parser<Dimension, Feat, FeatureExtractor>> {
     let rules = en::rules_numbers()?;
-    let exs = ::examples::examples_en_numbers();
+    let exs = en::examples_numbers();
     let model = duckling::train::train(&rules, exs, FeatureExtractor())?;
-    Ok(duckling::Parser::new(rules, model, FeatureExtractor()))
+    Ok(duckling::Parser::new(rules, model))
+}
+
+pub fn build_parser_fr() -> DucklingResult<duckling::Parser<Dimension, Feat, FeatureExtractor>> {
+    let rules = fr::rules_numbers()?;
+    let exs = fr::examples_numbers();
+    let model = duckling::train::train(&rules, exs, FeatureExtractor())?;
+    Ok(duckling::Parser::new(rules, model))
 }
 
 pub struct FeatureExtractor();
