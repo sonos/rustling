@@ -1,9 +1,10 @@
 use core::*;
 use core::errors::*;
-use ::*;
-use Precision::*;
+use dimension::*;
+use dimension::Precision::*;
 use helpers;
 use examples::*;
+use core::rule::rule_errors::RuleResult;
 
 pub fn rules_temperature() -> Result<RuleSet<Dimension>> {
     Ok(RuleSet(vec![
@@ -327,7 +328,7 @@ pub fn rules_numbers() -> Result<RuleSet<Dimension>> {
     ]))
 }
 
-pub fn examples_numbers() -> Vec<duckling::train::Example<Dimension>> {
+pub fn examples_numbers() -> Vec<::duckling::train::Example<Dimension>> {
     let mut v = vec![];
     example!(v, check_integer(0), "0", "naught", "nought", "zero", "nil");
     example!(v, check_integer(1), "1", "one", "single");

@@ -3,21 +3,25 @@ extern crate clap;
 extern crate duckling_ontology;
 #[macro_use]
 extern crate prettytable;
+
+use duckling_ontology::*;
 use prettytable::Table;
 use ::std::cmp::min;
 
 fn main() {
     let matches = clap_app!(duckling_cli =>
+        (@arg lang: -l --lang default_value[en] "2-letter language code (default to \"en\")")
         (@subcommand parse =>
              (@arg sentence: +required "Sentence to test")
         )
     )
         .get_matches();
 
+    let lang = value_t!(matches.value_of("lang"), Lang).unwrap_or_else(|e| e.exit());
     match matches.subcommand() {
         ("parse", Some(matches)) => {
             let sentence = matches.value_of("sentence").unwrap().to_lowercase();
-            let parser = duckling_ontology::parser::build_parser_en().unwrap();
+            let parser = build_parser(lang).unwrap();
             let candidates = parser.candidates(&*sentence, |_| Some(12)).unwrap();
             let mut table = Table::new();
             table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
@@ -43,9 +47,9 @@ fn main() {
                                        .children
                                        .iter()
                                        .map(|n| {
-                                          let max_length = min(20, n.rule_name.len());
-                                          &n.rule_name[..max_length]
-                                        })
+                                           let max_length = min(20, n.rule_name.len());
+                                           &n.rule_name[..max_length]
+                                       })
                                        .collect::<Vec<_>>()
                                        .join(" + ")]);
             }

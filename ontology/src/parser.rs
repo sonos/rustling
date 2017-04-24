@@ -1,43 +1,22 @@
-use duckling::*;
-use ::*;
-use en;
-use fr;
-use core::errors::*;
-use std::collections::HashMap;
-use core::pattern::Range;
-use std::cmp::Ordering;
-use duckling::errors::DucklingResult;
+use Dimension;
+use duckling;
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
 pub struct Feat(Vec<&'static str>);
-impl ml::Feature for Feat {}
-
-pub fn build_parser_en() -> DucklingResult<duckling::Parser<Dimension, Feat, FeatureExtractor>> {
-    let rules = en::rules_numbers()?;
-    let exs = en::examples_numbers();
-    let model = duckling::train::train(&rules, exs, FeatureExtractor())?;
-    Ok(duckling::Parser::new(rules, model, FeatureExtractor()))
-}
-
-pub fn build_parser_fr() -> DucklingResult<duckling::Parser<Dimension, Feat, FeatureExtractor>> {
-    let rules = fr::rules_numbers()?;
-    let exs = fr::examples_numbers();
-    let model = duckling::train::train(&rules, exs, FeatureExtractor())?;
-    Ok(duckling::Parser::new(rules, model, FeatureExtractor()))
-}
+impl duckling::Feature for Feat {}
 
 pub struct FeatureExtractor();
 
 impl duckling::FeatureExtractor<Dimension, Feat> for FeatureExtractor {
-    fn for_parsed_node(&self, node:&ParsedNode<Dimension>) -> ml::Input<duckling::RuleId, Feat> {
+    fn for_parsed_node(&self, node:&duckling::ParsedNode<Dimension>) -> duckling::Input<duckling::RuleId, Feat> {
         self.for_node(&node.root_node)
     }
-    fn for_node(&self, node:&Node) -> ml::Input<duckling::RuleId, Feat> {
+    fn for_node(&self, node:&duckling::Node) -> duckling::Input<duckling::RuleId, Feat> {
         extract_node_features(&node)
     }
 }
 
-pub fn extract_node_features(node:&core::Node) -> ml::Input<duckling::RuleId, Feat> {
+pub fn extract_node_features(node:&duckling::Node) -> duckling::Input<duckling::RuleId, Feat> {
     let features = vec![
         Feat(node.children.iter().map({ |child| child.rule_name }).collect())
     ];
@@ -47,7 +26,7 @@ pub fn extract_node_features(node:&core::Node) -> ml::Input<duckling::RuleId, Fe
         .map({ |child| extract_node_features(child) })
         .collect();
 
-    ml::Input {
+    duckling::Input {
         classifier_id: duckling::RuleId(node.rule_name),
         features: features,
         children: children_features,

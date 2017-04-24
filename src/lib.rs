@@ -5,10 +5,9 @@ extern crate duckling_ml as ml;
 
 use ::std::cmp::{PartialOrd, Ordering};
 
-use errors::*;
-
-pub use core::{Node, ParsedNode, Range, RuleSet};
-pub use ml::{ Feature, Model };
+pub use core::{AttemptFrom, Node, ParsedNode, Range, RuleSet};
+pub use ml::{ Feature, Input, Model };
+pub use errors::*;
 
 pub mod train;
 

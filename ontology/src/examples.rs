@@ -1,8 +1,7 @@
 use duckling::*;
 use duckling::train::*;
-use super::*;
+use dimension::*;
 
-// ONTOLOGY
 #[derive(Debug)]
 pub struct CheckInteger {
     pub value: i64,

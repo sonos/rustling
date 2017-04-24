@@ -3,200 +3,63 @@ extern crate duckling;
 extern crate duckling_core as core;
 extern crate duckling_ml as ml;
 
-use core::AttemptFrom;
+use std::result;
+
 #[macro_use]
 mod macros;
 mod helpers;
+mod dimension;
 mod examples;
-pub mod en;
-pub mod fr;
-pub mod parser;
+mod en;
+mod fr;
+mod parser;
 
-use core::rule::rule_errors::*;
+pub use duckling::{ ParserMatch, Range, DucklingResult };
+pub use dimension::{Dimension, IntegerValue, NumberValue, FloatValue, OrdinalValue, TemperatureValue};
 
-duckling_value! { Dimension
-    Number(NumberValue),
-    Ordinal(OrdinalValue),
-    Temperature(TemperatureValue),
-}
+#[derive(Copy,Clone,Debug)]
+pub enum Lang { EN, FR }
 
-impl duckling::Value for Dimension {
-    fn same_dimension_as(&self, other: &Self) -> bool {
-        match (self, other) {
-            (&Dimension::Number(_), &Dimension::Number(_))
-                | (&Dimension::Ordinal(_), &Dimension::Ordinal(_))
-                | (&Dimension::Temperature(_), &Dimension::Temperature(_)) => true,
-            _ => false
+impl std::str::FromStr for Lang {
+    type Err=String;
+    fn from_str(it: &str) -> result::Result<Lang,Self::Err> {
+        match &*it.to_lowercase() {
+            "en" => Ok(Lang::EN),
+            "fr" => Ok(Lang::FR),
+            _ => Err(format!("Unknown language {}", it))
         }
     }
 }
 
-impl ::std::fmt::Display for Dimension {
-    fn fmt(&self, fmt:&mut ::std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+impl ::std::string::ToString for Lang {
+    fn to_string(&self) -> String {
         match self {
-            &Dimension::Number(ref number) => {
-                match number {
-                    &NumberValue::Integer(ref v) => write!(fmt, "Number: {}", v.value),
-                    &NumberValue::Float(ref v) => write!(fmt, "Number: {}", v.value)
-                }
-            },
-            &Dimension::Ordinal(_) => write!(fmt, "Ordinal"),
-            &Dimension::Temperature(_) => write!(fmt, "Temperature"),
+            &Lang::EN => "en".to_string(),
+            &Lang::FR => "fr".to_string(),
         }
     }
 }
 
-#[derive(Debug,PartialEq,Copy,Clone)]
-pub struct OrdinalValue {
-    value: i64,
-}
+pub type Parser = duckling::Parser<Dimension, parser::Feat, parser::FeatureExtractor>;
 
-#[derive(Debug,PartialEq,Copy,Clone)]
-pub enum Precision {
-    Approximate,
-    Exact,
-}
-
-impl Default for Precision {
-    fn default() -> Precision {
-        Precision::Exact
+pub fn build_parser(lang:Lang) -> DucklingResult<Parser> {
+    match lang {
+        Lang::EN => build_parser_en(),
+        Lang::FR => build_parser_fr(),
     }
 }
 
-#[derive(Debug,PartialEq,Clone,Default)]
-pub struct IntegerValue {
-    value: i64,
-    grain: Option<u8>,
-    group: bool,
-    prefixed: bool,
-    suffixed: bool,
-    precision: Precision,
+fn build_parser_en() -> DucklingResult<Parser> {
+    let rules = en::rules_numbers()?;
+    let exs = en::examples_numbers();
+    let model = duckling::train::train(&rules, exs, parser::FeatureExtractor())?;
+    Ok(duckling::Parser::new(rules, model, parser::FeatureExtractor()))
 }
 
-impl IntegerValue {
-    pub fn new(value:i64) -> RuleResult<IntegerValue> {
-        Ok(IntegerValue { value: value, grain: None, .. IntegerValue::default() })
-    }
-    pub fn new_with_grain(value:i64, grain:u8) -> RuleResult<IntegerValue> {
-        Ok(IntegerValue { value: value, grain: Some(grain), .. IntegerValue::default() })
-    }
+fn build_parser_fr() -> DucklingResult<Parser> {
+    let rules = fr::rules_numbers()?;
+    let exs = fr::examples_numbers();
+    let model = duckling::train::train(&rules, exs, parser::FeatureExtractor())?;
+    Ok(duckling::Parser::new(rules, model, parser::FeatureExtractor()))
 }
 
-impl From<IntegerValue> for Dimension {
-    fn from(v: IntegerValue) -> Dimension {
-        Dimension::Number(NumberValue::Integer(v))
-    }
-}
-
-impl From<FloatValue> for Dimension {
-    fn from(v: FloatValue) -> Dimension {
-        Dimension::Number(NumberValue::Float(v))
-    }
-}
-
-impl From<IntegerValue> for NumberValue {
-    fn from(v: IntegerValue) -> NumberValue {
-        NumberValue::Integer(v)
-    }
-}
-
-impl AttemptFrom<Dimension> for IntegerValue {
-    fn attempt_from(v: Dimension) -> Option<IntegerValue> {
-        if let Dimension::Number(value) = v {
-            if let NumberValue::Integer(integer) = value {
-                Some(integer)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-}
-
-impl AttemptFrom<Dimension> for FloatValue {
-    fn attempt_from(v: Dimension) -> Option<FloatValue> {
-        if let Dimension::Number(value) = v {
-            if let NumberValue::Float(float) = value {
-                Some(float)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Debug,PartialEq,Clone)]
-pub struct FloatValue {
-    value: f32,
-    prefixed: bool,
-    suffixed: bool,
-    precision: Precision,
-}
-
-impl FloatValue {
-    fn default() -> FloatValue {
-        FloatValue {
-            value: 0.0,
-            prefixed: false,
-            suffixed: false,
-            precision: Precision::Exact,
-        }
-    }
-
-    fn new(value: f32) -> RuleResult<FloatValue> {
-        Ok(FloatValue {value: value, .. FloatValue::default()})
-    }
-}
-
-impl From<FloatValue> for NumberValue {
-    fn from(v: FloatValue) -> NumberValue {
-        NumberValue::Float(v)
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum NumberValue {
-    Float(FloatValue),
-    Integer(IntegerValue),
-}
-
-impl NumberValue {
-    pub fn prefixed(&self) -> bool {
-        match self {
-            &NumberValue::Float(ref v) => v.prefixed,
-            &NumberValue::Integer(ref v) => v.prefixed,
-        }
-    }
-
-    pub fn suffixed(&self) -> bool {
-        match self {
-            &NumberValue::Float(ref v) => v.suffixed,
-            &NumberValue::Integer(ref v) => v.suffixed,
-        }
-    }
-
-    pub fn value(&self) -> f32 {
-        match self {
-            &NumberValue::Float(ref v) => v.value,
-            &NumberValue::Integer(ref v) => v.value as f32,
-        }
-    }
-
-    pub fn grain(&self) -> Option<u8> {
-        match self {
-            &NumberValue::Float(_) => None,
-            &NumberValue::Integer(ref v) => v.grain
-        }
-    }
-}
-
-#[derive(Debug,PartialEq,Clone)]
-pub struct TemperatureValue {
-    value: f32,
-    unit: Option<&'static str>,
-    latent: bool
-
-}

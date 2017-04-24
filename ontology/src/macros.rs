@@ -37,6 +37,6 @@ macro_rules! temperature_check {
 
 macro_rules! example {
     ($v:expr, $check:expr, $($ex:expr),*) => {
-        $( $v.push(duckling::train::Example::new($ex, Box::new($check))); )*
+        $( $v.push($crate::duckling::train::Example::new($ex, Box::new($check))); )*
     };
 }
