@@ -48,7 +48,6 @@ impl Node {
 pub struct ParsedNode<V: Clone> {
     pub root_node: Node,
     pub value: V,
-    pub latent: bool,
 }
 
 impl<V: Clone> ParsedNode<V> {
@@ -56,7 +55,6 @@ impl<V: Clone> ParsedNode<V> {
         ParsedNode {
             root_node: Node::new(name, r, children),
             value: v,
-            latent: false,
         }
     }
 }
