@@ -16,14 +16,14 @@ pub fn build_parser_en() -> DucklingResult<duckling::Parser<Dimension, Feat, Fea
     let rules = en::rules_numbers()?;
     let exs = en::examples_numbers();
     let model = duckling::train::train(&rules, exs, FeatureExtractor())?;
-    Ok(duckling::Parser::new(rules, model))
+    Ok(duckling::Parser::new(rules, model, FeatureExtractor()))
 }
 
 pub fn build_parser_fr() -> DucklingResult<duckling::Parser<Dimension, Feat, FeatureExtractor>> {
     let rules = fr::rules_numbers()?;
     let exs = fr::examples_numbers();
     let model = duckling::train::train(&rules, exs, FeatureExtractor())?;
-    Ok(duckling::Parser::new(rules, model))
+    Ok(duckling::Parser::new(rules, model, FeatureExtractor()))
 }
 
 pub struct FeatureExtractor();

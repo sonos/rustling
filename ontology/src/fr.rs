@@ -293,7 +293,7 @@ pub fn rules_numbers() -> Result<RuleSet<Dimension>> {
     ]))
 }
 
-pub fn examples_numbers() -> Vec<examples::Example<Dimension>> {
+pub fn examples_numbers() -> Vec<duckling::train::Example<Dimension>> {
     let mut v = vec![];
     example!(v, examples::check_integer(1), "1", "un", "une");
     example!(v, examples::check_integer(11), "onze");
