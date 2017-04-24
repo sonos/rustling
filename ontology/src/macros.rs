@@ -34,3 +34,9 @@ macro_rules! regex_neg_lh {
 macro_rules! temperature_check {
     () => ( $crate::core::pattern::AnyNodePattern::<TemperatureValue>::new() );
 }
+
+macro_rules! example {
+    ($v:expr, $check:expr, $($ex:expr),*) => {
+        $( $v.push(::examples::Example::new($ex, Box::new($check))); )*
+    };
+}
