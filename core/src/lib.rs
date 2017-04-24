@@ -9,7 +9,7 @@ pub mod pattern;
 pub mod rule;
 
 use rule::Rule;
-use pattern::Range;
+pub use pattern::Range;
 use errors::*;
 
 #[macro_export]

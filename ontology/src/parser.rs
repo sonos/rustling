@@ -16,15 +16,18 @@ impl ml::Feature for Feat {}
 pub fn build_parser_en() -> DucklingResult<duckling::Parser<Dimension, Feat, FeatureExtractor>> {
     let rules = en::rules_numbers()?;
     let exs = ::examples::examples_en_numbers();
-    let model = ::examples::train(&rules, exs)?;
-    Ok(duckling::Parser::new(rules, model))
+    let model = duckling::train::train(&rules, exs, FeatureExtractor())?;
+    Ok(duckling::Parser::new(rules, model, FeatureExtractor()))
 }
 
 pub struct FeatureExtractor();
 
 impl duckling::FeatureExtractor<Dimension, Feat> for FeatureExtractor {
-    fn extract_features(node:&ParsedNode<Dimension>) -> Input<duckling::Id, Feat> {
-        extract_node_features(&node.root_node)
+    fn for_parsed_node(&self, node:&ParsedNode<Dimension>) -> Input<duckling::Id, Feat> {
+        self.for_node(&node.root_node)
+    }
+    fn for_node(&self, node:&Node) -> Input<duckling::Id, Feat> {
+        extract_node_features(&node)
     }
 }
 

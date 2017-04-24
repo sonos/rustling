@@ -7,7 +7,10 @@ use ::std::cmp::{PartialOrd, Ordering};
 
 use errors::*;
 
-pub use core::ParsedNode;
+pub use core::{Node, ParsedNode, Range, RuleSet};
+pub use ml::{ Feature, Model };
+
+pub mod train;
 
 pub mod errors {
     error_chain! {
@@ -68,13 +71,14 @@ fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
 }
 
 pub trait FeatureExtractor<V: Value, Feat: ml::Feature> {
-    fn extract_features(node: &ParsedNode<V>) -> ml::Input<Id, Feat>;
+    fn for_parsed_node(&self, node:&ParsedNode<V>) -> ml::Input<Id, Feat>;
+    fn for_node(&self, node:&Node) -> ml::Input<Id, Feat>;
 }
 
 pub struct Parser<V: Value, Feat: ml::Feature, Extractor: FeatureExtractor<V, Feat>> {
     rules: core::RuleSet<V>,
     model: ml::Model<Id, Class, Feat>,
-    extractor: ::std::marker::PhantomData<Extractor>,
+    extractor: Extractor,
 }
 
 impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
@@ -84,12 +88,14 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
           Extractor: FeatureExtractor<V, Feat>
 {
     pub fn new(rules: core::RuleSet<V>,
-               model: ml::Model<Id, Class, Feat>)
+               model: ml::Model<Id, Class, Feat>,
+               extractor: Extractor
+               )
                -> Parser<V, Feat, Extractor> {
         Parser {
             rules: rules,
             model: model,
-            extractor: ::std::marker::PhantomData,
+            extractor: extractor
         }
     }
 
@@ -98,7 +104,7 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
             .apply_all(input)?
             .into_iter()
             .map(|p| {
-                let features: ml::Input<Id, Feat> = Extractor::extract_features(&p);
+                let features: ml::Input<Id, Feat> = self.extractor.for_parsed_node(&p);
                 let probalog = self.model.classify(&features, &Class(true))?;
                 let pm = ParserMatch {
                         range: p.root_node.range,
@@ -155,7 +161,6 @@ fn tag_maximal_elements<I, CMP: Fn(&I, &I) -> Option<Ordering>>(values: Vec<I>,
     }
     values.into_iter().zip(mask.into_iter()).collect()
 }
-
 
 #[cfg(test)]
 mod tests {
