@@ -51,10 +51,15 @@ pub trait Value: Clone + PartialEq + ::std::fmt::Debug + ::std::fmt::Display {
     fn same_dimension_as(&self, other: &Self) -> bool;
 }
 
+/// Match holder for the Parser.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParserMatch<V: Value> {
+    /// Range in bytes of matched area
     pub range: Range,
+    /// Actual value built from the text.
     pub value: V,
+    /// Logarithmic probability of the match after machine-learned model
+    /// evaluation.
     pub probalog: f32,
 }
 
@@ -144,7 +149,11 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
             .collect())
     }
 
-    pub fn parse<S: Fn(&V) -> Option<usize>>(&self,
+    pub fn parse(&self, input: &str) -> DucklingResult<Vec<ParserMatch<V>>> {
+        self.parse_with_priority(input, |_| Some(0))
+    }
+
+    pub fn parse_with_priority<S: Fn(&V) -> Option<usize>>(&self,
                                              input: &str,
                                              dimension_prio: S)
                                              -> DucklingResult<Vec<ParserMatch<V>>> {
@@ -292,9 +301,11 @@ mod tests {
         assert_eq!(vec![Int(12), Int(42), Int(12), Int(42), Int(54), Int(504)], values);
     }
 
-    rustling_value! { Value
-        UI(usize),
-        FP(f32),
+    rustling_value! {
+        #[doc="an union"]
+        Value
+            UI(usize),
+            FP(f32),
     }
 
     #[test]

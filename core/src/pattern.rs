@@ -5,6 +5,8 @@ use smallvec::SmallVec;
 use errors::*;
 use {AttemptFrom, Node, ParsedNode, Stash};
 
+/// Represent a semi-inclusive range of position, in bytes, in the matched
+/// sentence.
 #[derive(PartialEq,Clone,Debug,Copy,Hash,Eq)]
 pub struct Range(pub usize, pub usize);
 
