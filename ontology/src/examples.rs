@@ -1,5 +1,4 @@
 use duckling::*;
-use duckling::train::*;
 use dimension::*;
 
 #[derive(Debug)]

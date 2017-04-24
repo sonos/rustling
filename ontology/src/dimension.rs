@@ -1,8 +1,6 @@
 use std::{ fmt, result };
 
 use duckling::*;
-use core::AttemptFrom;
-use core::rule::rule_errors::RuleResult;
 
 duckling_value! { Dimension
     Number(NumberValue),

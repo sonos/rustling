@@ -1,5 +1,5 @@
+use duckling::*;
 use dimension::*;
-use core::rule::rule_errors::*;
 
 pub fn compose_numbers(a: &NumberValue, b: &NumberValue) -> RuleResult<NumberValue> {
     let grain = a.grain().unwrap_or(0) as u32;

@@ -1,12 +1,17 @@
 use std::fmt::Debug;
+use std::collections::HashMap;
+use std::collections::HashSet;
+
+use {Classifier, Feature, FeatureExtractor, Model, Node, ParsedNode, RuleId, RuleSet, Truth, Value};
+use DucklingResult;
 
 #[derive(Debug)]
-pub struct Example<V: ::Value> {
+pub struct Example<V: Value> {
     text: &'static str,
     predicate: Box<Check<V>>,
 }
 
-impl<V: ::Value> Example<V> {
+impl<V: Value> Example<V> {
     pub fn new(text: &'static str, predicate: Box<Check<V>>) -> Example<V> {
         Example {
             text: text,
@@ -15,21 +20,16 @@ impl<V: ::Value> Example<V> {
     }
 }
 
-pub trait Check<V: ::Value> : Debug {
-    fn check(&self, &::ParsedNode<V>) -> bool;
+pub trait Check<V: Value>: Debug {
+    fn check(&self, &ParsedNode<V>) -> bool;
 }
 
-pub fn train<V: ::Value, F: ::Feature, E: ::FeatureExtractor<V,F>>
-    (rules: &::RuleSet<V>,
+pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
+    (rules: &RuleSet<V>,
      examples: Vec<Example<V>>,
      feature_extractor: E)
-     -> ::errors::DucklingResult<::Model<::RuleId, ::Truth, F>> {
-    use std::collections::HashMap;
-    use std::collections::HashSet;
-    use core::Node;
-    let mut classified_ex: HashMap<::RuleId,
-                                   Vec<(HashMap<F, usize>, ::Truth)>> =
-        HashMap::new();
+     -> DucklingResult<Model<RuleId, Truth, F>> {
+    let mut classified_ex: HashMap<RuleId, Vec<(HashMap<F, usize>, Truth)>> = HashMap::new();
     for ex in examples.iter() {
         let stash = rules.apply_all(&ex.text.to_lowercase()).unwrap();
 
@@ -67,7 +67,7 @@ pub fn train<V: ::Value, F: ::Feature, E: ::FeatureExtractor<V,F>>
         }
 
         // - put node counted features, with truth value in the trainable hashmaps
-        for  (nodes, truth) in vec![(positive_nodes, true),(negative_nodes, false)].into_iter() {
+        for (nodes, truth) in vec![(positive_nodes, true), (negative_nodes, false)].into_iter() {
             for n in nodes.into_iter() {
                 let mut counted_features = HashMap::new();
                 for f in feature_extractor.for_node(&n).features {
@@ -81,8 +81,7 @@ pub fn train<V: ::Value, F: ::Feature, E: ::FeatureExtractor<V,F>>
     }
     // - train the classifiers
     let classifiers = classified_ex.into_iter()
-        .map(|(id, examples)| (id, ::ml::Classifier::train(&examples)))
+        .map(|(id, examples)| (id, Classifier::train(&examples)))
         .collect();
     Ok(::Model { classifiers: classifiers })
 }
-

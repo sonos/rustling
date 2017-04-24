@@ -1,12 +1,10 @@
-use core::*;
-use core::errors::*;
+use duckling::*;
 use dimension::*;
 use dimension::Precision::*;
 use helpers;
 use examples::*;
-use core::rule::rule_errors::RuleResult;
 
-pub fn rules_temperature() -> Result<RuleSet<Dimension>> {
+pub fn rules_temperature() -> DucklingResult<RuleSet<Dimension>> {
     Ok(RuleSet(vec![
         rule! { 
             "number as temp", 
@@ -32,7 +30,7 @@ pub fn rules_temperature() -> Result<RuleSet<Dimension>> {
     ]))
 }
 
-pub fn rules_numbers() -> Result<RuleSet<Dimension>> {
+pub fn rules_numbers() -> DucklingResult<RuleSet<Dimension>> {
     Ok(RuleSet(vec![
         rule! {
             "intersect (with and)",

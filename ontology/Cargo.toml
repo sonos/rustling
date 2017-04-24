@@ -4,6 +4,4 @@ version = "0.1.0"
 authors = ["hdlj <hubert.delajonquiere@snips.net>"]
 
 [dependencies]
-duckling-core = { path = "../core" }
-duckling-ml = { path = "../ml" }
 duckling = { path=".."}

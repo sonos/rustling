@@ -3,24 +3,24 @@ macro_rules! b {
 }
 
 macro_rules! integer_check {
-    () => ( $crate::core::pattern::AnyNodePattern::<IntegerValue>::new());
-    ($min:expr) => ( $crate::core::pattern::FilterNodePattern::<IntegerValue>::filter(vec![b!(|integer: &IntegerValue| integer.value >= $min)]) );
-    ($min:expr, $max:expr) => ( $crate::core::pattern::FilterNodePattern::<IntegerValue>::filter(vec![b!(|integer: &IntegerValue| integer.value >= $min && integer.value <= $max)]) );
-    ($min:expr, $max:expr, $predicate:expr) => ( $crate::core::pattern::FilterNodePattern::<IntegerValue>::filter(vec![b!(|integer: &IntegerValue| integer.value >= $min && integer.value <= $max), b!($predicate)]) );
+    () => ( $crate::duckling::core::AnyNodePattern::<IntegerValue>::new());
+    ($min:expr) => ( $crate::duckling::core::FilterNodePattern::<IntegerValue>::filter(vec![b!(|integer: &IntegerValue| integer.value >= $min)]) );
+    ($min:expr, $max:expr) => ( $crate::duckling::core::FilterNodePattern::<IntegerValue>::filter(vec![b!(|integer: &IntegerValue| integer.value >= $min && integer.value <= $max)]) );
+    ($min:expr, $max:expr, $predicate:expr) => ( $crate::duckling::core::FilterNodePattern::<IntegerValue>::filter(vec![b!(|integer: &IntegerValue| integer.value >= $min && integer.value <= $max), b!($predicate)]) );
 }
 
 macro_rules! integer_filter {
-    ($predicate:expr) => ( $crate::core::pattern::FilterNodePattern::<IntegerValue>::filter(vec![b!($predicate)]) );
+    ($predicate:expr) => ( $crate::duckling::core::FilterNodePattern::<IntegerValue>::filter(vec![b!($predicate)]) );
 }
 
 macro_rules! number_check {
-    () => ( $crate::core::pattern::AnyNodePattern::<NumberValue>::new() );
-    ($predicate:expr) => ( $crate::core::pattern::FilterNodePattern::<NumberValue>::filter(vec![b!($predicate)]) );
+    () => ( $crate::duckling::core::AnyNodePattern::<NumberValue>::new() );
+    ($predicate:expr) => ( $crate::duckling::core::FilterNodePattern::<NumberValue>::filter(vec![b!($predicate)]) );
 }
 
 macro_rules! ordinal_check {
-    () => ( $crate::core::pattern::AnyNodePattern::<OrdinalValue>::new() );
-    ($predicate:expr) => ( $crate::core::pattern::FilterNodePattern::<OrdinalValue>::filter(vec![b!($predicate)]) );
+    () => ( $crate::duckling::core::AnyNodePattern::<OrdinalValue>::new() );
+    ($predicate:expr) => ( $crate::duckling::core::FilterNodePattern::<OrdinalValue>::filter(vec![b!($predicate)]) );
 }
 
 macro_rules! regex {
@@ -32,11 +32,11 @@ macro_rules! regex_neg_lh {
 }
 
 macro_rules! temperature_check {
-    () => ( $crate::core::pattern::AnyNodePattern::<TemperatureValue>::new() );
+    () => ( $crate::duckling::core::AnyNodePattern::<TemperatureValue>::new() );
 }
 
 macro_rules! example {
     ($v:expr, $check:expr, $($ex:expr),*) => {
-        $( $v.push($crate::duckling::train::Example::new($ex, Box::new($check))); )*
+        $( $v.push($crate::duckling::Example::new($ex, Box::new($check))); )*
     };
 }

@@ -1,7 +1,5 @@
-extern crate duckling;
 #[macro_use]
-extern crate duckling_core as core;
-extern crate duckling_ml as ml;
+extern crate duckling;
 
 use std::result;
 

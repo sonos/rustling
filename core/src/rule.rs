@@ -20,8 +20,8 @@ pub mod rule_errors {
     }
 }
 
-fn make_production_error(s:RuleError) -> Error {
-    ErrorKind::ProductionRuleError(format!("{:?}", s)).into()
+fn make_production_error(s:RuleError) -> CoreError {
+    CoreErrorKind::ProductionRuleError(format!("{:?}", s)).into()
 
 }
 
@@ -55,7 +55,7 @@ pub trait Rule<StashValue: Clone> {
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
-             -> Result<Vec<ParsedNode<StashValue>>>;
+             -> CoreResult<Vec<ParsedNode<StashValue>>>;
 }
 
 pub struct Rule1<PA, V, StashValue, F>
@@ -79,7 +79,7 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
-             -> Result<Vec<ParsedNode<StashValue>>> {
+             -> CoreResult<Vec<ParsedNode<StashValue>>> {
         let matches = self.matches(&stash, sentence)?;
         matches.iter()
             .filter_map(|sub| {
@@ -120,7 +120,7 @@ impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
         }
     }
 
-    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> Result<Vec<PA::M>> {
+    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<Vec<PA::M>> {
         self.pattern.predicate(stash, sentence)
     }
 }
@@ -154,7 +154,7 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
-             -> Result<Vec<ParsedNode<StashValue>>> {
+             -> CoreResult<Vec<ParsedNode<StashValue>>> {
         let matches = self.matches(&stash, sentence)?;
         matches.iter()
             .filter_map(|sub| {
@@ -201,7 +201,7 @@ impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
         }
     }
 
-    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> Result<Vec<(PA::M, PB::M)>> {
+    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<Vec<(PA::M, PB::M)>> {
         let matches_0 = self.pattern.0.predicate(stash, sentence)?;
         let matches_1 = self.pattern.1.predicate(stash, sentence)?;
         let mut result = vec![];
@@ -242,7 +242,7 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue>
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
-             -> Result<Vec<ParsedNode<StashValue>>> {
+             -> CoreResult<Vec<ParsedNode<StashValue>>> {
         let matches = self.matches(&stash, sentence)?;
         matches.iter()
             .filter_map(|sub| {
@@ -284,7 +284,7 @@ impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
         }
     }
 
-    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> Result<Vec<(PA::M, PB::M, PC::M)>> {
+    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<Vec<(PA::M, PB::M, PC::M)>> {
         let matches_0 = self.pattern.0.predicate(stash, sentence)?;
         let matches_1 = self.pattern.1.predicate(stash, sentence)?;
         let matches_2 = self.pattern.2.predicate(stash, sentence)?;
@@ -318,13 +318,19 @@ mod tests {
         }
     }
 
+    impl AttemptFrom<usize> for usize {
+        fn attempt_from(v: usize) -> Option<usize> {
+            Some(v)
+        }
+    }
+
     macro_rules! reg {
         ($typ:ty, $pattern:expr) => ( $crate::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $pattern) )
     }
 
     #[test]
     fn test_integer_numeric_en_rule() {
-        let rule = rule! { "ten", (reg!(usize, "ten")), |_| Ok(10usize) };
+        let rule = Rule1::new("ten", (reg!(usize, "ten")), |_| Ok(10usize));
         assert_eq!(vec![Text::new(svec![Range(8,11)], Range(8, 11), "ten")],
                    rule.matches(&vec![], "foobar: ten").unwrap());
         assert_eq!(vec![Text::new(svec![Range(8,11)], Range(8, 11), "ten"),
@@ -343,11 +349,13 @@ mod tests {
 
     #[test]
     fn test_integer_numeric_compo_en_rule() {
-        let rule_consec = rule! {
+        let rule_consec = Rule2::new(
             "2 consecutive ints",
-            (dim!(usize), dim!(usize, vec![Box::new(|integer: &usize| *integer == 10)])),
+            (AnyNodePattern::<usize>::new(),
+             FilterNodePattern::<usize>::filter(vec![Box::new(|integer: &usize| *integer == 10)])
+            ),
             |a,b| Ok(a.value()+b.value())
-        };
+        );
         let stash: Stash<usize> = vec![ParsedNode::new("ten", 10, Range(8, 11), vec![]),
                                        ParsedNode::new("ten", 10, Range(12, 15), vec![])];
         assert_eq!(vec![(stash[0].clone(), stash[1].clone())],
@@ -363,8 +371,8 @@ mod tests {
     #[test]
     fn test_integer_numeric_int_rule() {
         use std::str::FromStr;
-        let rule_int = rule! { "int", (reg!(usize, "\\d+")),
-            |a| Ok(usize::from_str(&*a.group(0))?) };
+        let rule_int = Rule1::new("int", (reg!(usize, "\\d+")),
+            |a| Ok(usize::from_str(&*a.group(0))?));
         assert_eq!(vec![ParsedNode::new("int",
                                         42,
                                         Range(8, 10),
