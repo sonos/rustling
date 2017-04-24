@@ -9,6 +9,7 @@ mod macros;
 mod helpers;
 mod examples;
 pub mod en;
+pub mod fr;
 pub mod parser;
 
 use core::rule::rule_errors::*;
