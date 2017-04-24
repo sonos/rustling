@@ -1,4 +1,4 @@
-use duckling::*;
+use rustling::*;
 use dimension::*;
 use examples;
 
@@ -290,7 +290,7 @@ pub fn rules_numbers() -> DucklingResult<RuleSet<Dimension>> {
     ]))
 }
 
-pub fn examples_numbers() -> Vec<::duckling::train::Example<Dimension>> {
+pub fn examples_numbers() -> Vec<::rustling::train::Example<Dimension>> {
     let mut v = vec![];
     example!(v, examples::check_integer(1), "1", "un", "une");
     example!(v, examples::check_integer(11), "onze");

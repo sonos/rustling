@@ -1,4 +1,4 @@
-use duckling::*;
+use rustling::*;
 use dimension::*;
 
 #[derive(Debug)]

@@ -1,8 +1,8 @@
 use std::{ fmt, result };
 
-use duckling::*;
+use rustling::*;
 
-duckling_value! { Dimension
+rustling_value! { Dimension
     Number(NumberValue),
     Ordinal(OrdinalValue),
     Temperature(TemperatureValue),

@@ -1,14 +1,14 @@
 #[macro_use]
 extern crate error_chain;
-extern crate duckling_core;
-extern crate duckling_ml;
+extern crate rustling_core;
+extern crate rustling_ml;
 
 use ::std::cmp::{PartialOrd, Ordering};
 
-pub use duckling_core::regex;
-pub use duckling_core::{AttemptFrom, Node, ParsedNode, Range, RuleSet};
-pub use duckling_core::{RuleError, RuleErrorKind, RuleResult};
-pub use duckling_ml::{ ClassId, Classifier, ClassifierId, Feature, Input, Model };
+pub use rustling_core::regex;
+pub use rustling_core::{AttemptFrom, Node, ParsedNode, Range, RuleSet};
+pub use rustling_core::{RuleError, RuleErrorKind, RuleResult};
+pub use rustling_ml::{ ClassId, Classifier, ClassifierId, Feature, Input, Model };
 pub use train::{ Check, Example };
 pub use errors::*;
 
@@ -17,8 +17,8 @@ pub mod macros;
 pub mod train;
 
 pub mod core {
-    pub use duckling_core::pattern::{ AnyNodePattern, FilterNodePattern, TextNegLHPattern, TextPattern };
-    pub use duckling_core::rule::{ Rule1, Rule2, Rule3 };
+    pub use rustling_core::pattern::{ AnyNodePattern, FilterNodePattern, TextNegLHPattern, TextPattern };
+    pub use rustling_core::rule::{ Rule1, Rule2, Rule3 };
 }
 
 pub mod errors {
@@ -27,8 +27,8 @@ pub mod errors {
             DucklingError, DucklingErrorKind, DucklingResultExt, DucklingResult;
         }
         links {
-            Core(::duckling_core::errors::CoreError, ::duckling_core::errors::CoreErrorKind);
-            ML(::duckling_ml::errors::MLError, ::duckling_ml::errors::MLErrorKind);
+            Core(::rustling_core::errors::CoreError, ::rustling_core::errors::CoreErrorKind);
+            ML(::rustling_ml::errors::MLError, ::rustling_ml::errors::MLErrorKind);
         }
         foreign_links {
             Regex(::regex::Error);
@@ -292,7 +292,7 @@ mod tests {
         assert_eq!(vec![Int(12), Int(42), Int(12), Int(42), Int(54), Int(504)], values);
     }
 
-    duckling_value! { Value
+    rustling_value! { Value
         UI(usize),
         FP(f32),
     }

@@ -1,4 +1,4 @@
-use duckling::*;
+use rustling::*;
 use dimension::*;
 
 pub fn compose_numbers(a: &NumberValue, b: &NumberValue) -> RuleResult<NumberValue> {

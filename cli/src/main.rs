@@ -1,15 +1,15 @@
 #[macro_use]
 extern crate clap;
-extern crate duckling_ontology;
+extern crate rustling_ontology;
 #[macro_use]
 extern crate prettytable;
 
-use duckling_ontology::*;
+use rustling_ontology::*;
 use prettytable::Table;
 use ::std::cmp::min;
 
 fn main() {
-    let matches = clap_app!(duckling_cli =>
+    let matches = clap_app!(rustling_cli =>
         (@arg lang: -l --lang default_value[en] "2-letter language code (default to \"en\")")
         (@subcommand parse =>
              (@arg sentence: +required "Sentence to test")

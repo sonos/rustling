@@ -1,22 +1,22 @@
 use Dimension;
-use duckling;
+use rustling;
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
 pub struct Feat(Vec<&'static str>);
-impl duckling::Feature for Feat {}
+impl rustling::Feature for Feat {}
 
 pub struct FeatureExtractor();
 
-impl duckling::FeatureExtractor<Dimension, Feat> for FeatureExtractor {
-    fn for_parsed_node(&self, node:&duckling::ParsedNode<Dimension>) -> duckling::Input<duckling::RuleId, Feat> {
+impl rustling::FeatureExtractor<Dimension, Feat> for FeatureExtractor {
+    fn for_parsed_node(&self, node:&rustling::ParsedNode<Dimension>) -> rustling::Input<rustling::RuleId, Feat> {
         self.for_node(&node.root_node)
     }
-    fn for_node(&self, node:&duckling::Node) -> duckling::Input<duckling::RuleId, Feat> {
+    fn for_node(&self, node:&rustling::Node) -> rustling::Input<rustling::RuleId, Feat> {
         extract_node_features(&node)
     }
 }
 
-pub fn extract_node_features(node:&duckling::Node) -> duckling::Input<duckling::RuleId, Feat> {
+pub fn extract_node_features(node:&rustling::Node) -> rustling::Input<rustling::RuleId, Feat> {
     let features = vec![
         Feat(node.children.iter().map({ |child| child.rule_name }).collect())
     ];
@@ -26,8 +26,8 @@ pub fn extract_node_features(node:&duckling::Node) -> duckling::Input<duckling::
         .map({ |child| extract_node_features(child) })
         .collect();
 
-    duckling::Input {
-        classifier_id: duckling::RuleId(node.rule_name),
+    rustling::Input {
+        classifier_id: rustling::RuleId(node.rule_name),
         features: features,
         children: children_features,
     }
@@ -36,7 +36,7 @@ pub fn extract_node_features(node:&duckling::Node) -> duckling::Input<duckling::
 #[cfg(test)]
 mod tests {
     use parser::*;
-    use duckling::ParserMatch;
+    use rustling::ParserMatch;
     use core::pattern::Range;
 
     #[test]

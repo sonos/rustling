@@ -1,5 +1,5 @@
 [package]
-name = "duckling"
+name = "rustling"
 version = "0.1.0"
 authors = ["hdlj <hubert.delajonquiere@snips.net>", "Mathieu Poumeyrol <kali@zoy.org>"]
 
@@ -7,6 +7,6 @@ authors = ["hdlj <hubert.delajonquiere@snips.net>", "Mathieu Poumeyrol <kali@zoy
 members = ["core", "ontology", "ml", "cli"]
 
 [dependencies]
-duckling-core = { path="core"}
-duckling-ml = { path="ml"}
+rustling-core = { path="core"}
+rustling-ml = { path="ml"}
 error-chain = "0.10"

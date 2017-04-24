@@ -1,7 +1,7 @@
 [package]
-name = "duckling-ontology"
+name = "rustling-ontology"
 version = "0.1.0"
 authors = ["hdlj <hubert.delajonquiere@snips.net>"]
 
 [dependencies]
-duckling = { path=".."}
+rustling = { path=".."}
