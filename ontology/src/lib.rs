@@ -144,6 +144,10 @@ impl FloatValue {
             precision: Precision::Exact,
         }
     }
+
+    fn new(value: f32) -> RuleResult<FloatValue> {
+        Ok(FloatValue {value: value, .. FloatValue::default()})
+    }
 }
 
 impl From<FloatValue> for NumberValue {
