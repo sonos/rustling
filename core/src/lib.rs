@@ -27,6 +27,16 @@ pub trait AttemptFrom<V>: Sized {
     fn attempt_from(v: V) -> Option<Self>;
 }
 
+pub trait AttemptTo<T>: Sized {
+    fn attempt_to(&self) -> Option<T>;
+}
+
+impl<S,T> AttemptTo<T> for S where S:Clone, T: AttemptFrom<S> {
+    fn attempt_to(&self) -> Option<T> {
+        T::attempt_from(self.clone())
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct Node {
     pub rule_name: &'static str,

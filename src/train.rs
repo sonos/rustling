@@ -35,9 +35,11 @@ pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
 
         // - keep only full-range parsed nodes
         // - partition them according to the example check value
-        let (positive_parsed_nodes, negative_parse_nodes) = stash.into_iter()
-            .filter(|candidate| candidate.root_node.range == ::Range(0, ex.text.len()))
-            .partition::<Vec<_>, _>(|candidate| ex.predicate.check(&candidate));
+        let (positive_parsed_nodes, negative_parse_nodes) =
+            stash
+                .into_iter()
+                .filter(|candidate| candidate.root_node.range == ::Range(0, ex.text.len()))
+                .partition::<Vec<_>, _>(|candidate| ex.predicate.check(&candidate));
 
         // - example sanity check
         if positive_parsed_nodes.is_empty() {
@@ -73,14 +75,16 @@ pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
                 for f in feature_extractor.for_node(&n).features {
                     *counted_features.entry(f).or_insert(0) += 1;
                 }
-                classified_ex.entry(::RuleId(n.rule_name))
+                classified_ex
+                    .entry(::RuleId(n.rule_name))
                     .or_insert(vec![])
                     .push((counted_features, ::Truth(truth)));
             }
         }
     }
     // - train the classifiers
-    let classifiers = classified_ex.into_iter()
+    let classifiers = classified_ex
+        .into_iter()
         .map(|(id, examples)| (id, Classifier::train(&examples)))
         .collect();
     Ok(::Model { classifiers: classifiers })

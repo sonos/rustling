@@ -3,13 +3,13 @@ extern crate error_chain;
 extern crate rustling_core;
 extern crate rustling_ml;
 
-use ::std::cmp::{PartialOrd, Ordering};
+use std::cmp::{PartialOrd, Ordering};
 
 pub use rustling_core::regex;
-pub use rustling_core::{AttemptFrom, Node, ParsedNode, Range, RuleSet};
+pub use rustling_core::{AttemptFrom, AttemptTo, Node, ParsedNode, Range, RuleSet};
 pub use rustling_core::{RuleError, RuleErrorKind, RuleResult};
-pub use rustling_ml::{ ClassId, Classifier, ClassifierId, Feature, Input, Model };
-pub use train::{ Check, Example };
+pub use rustling_ml::{ClassId, Classifier, ClassifierId, Feature, Input, Model};
+pub use train::{Check, Example};
 pub use errors::*;
 
 #[macro_use]
@@ -17,8 +17,9 @@ pub mod macros;
 pub mod train;
 
 pub mod core {
-    pub use rustling_core::pattern::{ AnyNodePattern, FilterNodePattern, TextNegLHPattern, TextPattern };
-    pub use rustling_core::rule::{ Rule1, Rule2, Rule3 };
+    pub use rustling_core::pattern::{AnyNodePattern, FilterNodePattern, TextNegLHPattern,
+                                     TextPattern};
+    pub use rustling_core::rule::{Rule1, Rule2, Rule3};
 }
 
 pub mod errors {
@@ -47,8 +48,9 @@ impl ClassifierId for RuleId {}
 pub struct Truth(pub bool);
 impl ClassId for Truth {}
 
-pub trait Value: Clone + PartialEq + ::std::fmt::Debug + ::std::fmt::Display {
-    fn same_dimension_as(&self, other: &Self) -> bool;
+pub trait Value: Clone + PartialEq + ::std::fmt::Debug {
+    type Kind: PartialEq;
+    fn kind(&self) -> Self::Kind;
 }
 
 /// Match holder for the Parser.
@@ -68,7 +70,7 @@ fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
                 -> Option<Ordering>
     where V: Value
 {
-    if a.1.value.same_dimension_as(&b.1.value) {
+    if a.1.value.kind() == b.1.value.kind() {
         if a.1.range == b.1.range {
             a.1.probalog.partial_cmp(&b.1.probalog)
         } else if a.1.range.intersects(&b.1.range) {
@@ -87,8 +89,8 @@ fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
 }
 
 pub trait FeatureExtractor<V: Value, Feat: Feature> {
-    fn for_parsed_node(&self, node:&ParsedNode<V>) -> Input<RuleId, Feat>;
-    fn for_node(&self, node:&Node) -> Input<RuleId, Feat>;
+    fn for_parsed_node(&self, node: &ParsedNode<V>) -> Input<RuleId, Feat>;
+    fn for_node(&self, node: &Node) -> Input<RuleId, Feat>;
 }
 
 pub struct Parser<V: Value, Feat: Feature, Extractor: FeatureExtractor<V, Feat>> {
@@ -105,13 +107,12 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
 {
     pub fn new(rules: RuleSet<V>,
                model: Model<RuleId, Truth, Feat>,
-               extractor: Extractor
-               )
+               extractor: Extractor)
                -> Parser<V, Feat, Extractor> {
         Parser {
             rules: rules,
             model: model,
-            extractor: extractor
+            extractor: extractor,
         }
     }
 
@@ -123,9 +124,10 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
                 let features: Input<RuleId, Feat> = self.extractor.for_parsed_node(&p);
                 let probalog = self.model.classify(&features, &Truth(true))?;
                 let pm = ParserMatch {
-                        range: p.root_node.range,
-                        value: p.value.clone(),
-                        probalog: probalog };
+                    range: p.root_node.range,
+                    value: p.value.clone(),
+                    probalog: probalog,
+                };
                 Ok((p, pm))
             })
             .collect()
@@ -139,29 +141,33 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
         let candidates = self.raw_candidates(input)?
             .into_iter()
             .map(|(pn, pm)| {
-                let p = dimension_prio(&pm.value);
-                (pn, pm, p)
-            })
+                     let p = dimension_prio(&pm.value);
+                     (pn, pm, p)
+                 })
             .collect();
         Ok(tag_maximal_elements(candidates, |a, b| match_cmp(a, b))
-            .into_iter()
-            .map(|((pn,pv,prio), tag)| (pn, pv, prio, tag))
-            .collect())
+               .into_iter()
+               .map(|((pn, pv, prio), tag)| (pn, pv, prio, tag))
+               .collect())
     }
 
     pub fn parse(&self, input: &str) -> DucklingResult<Vec<ParserMatch<V>>> {
-        self.parse_with_priority(input, |_| Some(0))
+        self.parse_with(input, |_| Some(0))
     }
 
-    pub fn parse_with_priority<S: Fn(&V) -> Option<usize>>(&self,
-                                             input: &str,
-                                             dimension_prio: S)
-                                             -> DucklingResult<Vec<ParserMatch<V>>> {
+    pub fn parse_with_kind_order(&self, input: &str, order:&[V::Kind]) -> DucklingResult<Vec<ParserMatch<V>>> {
+        self.parse_with(input, |it| order.iter().position(|k| *k==it.kind()))
+    }
+
+    pub fn parse_with<S: Fn(&V) -> Option<usize>>(&self,
+                                                  input: &str,
+                                                  dimension_prio: S)
+                                                  -> DucklingResult<Vec<ParserMatch<V>>> {
         Ok(self.candidates(input, dimension_prio)?
-            .into_iter()
-            .filter(|a| a.3)
-            .map(|a| a.1)
-            .collect())
+               .into_iter()
+               .filter(|a| a.3)
+               .map(|a| a.1)
+               .collect())
     }
 }
 
@@ -211,15 +217,20 @@ mod tests {
         assert_eq!(cmp(&"ab", &"aa"), None);
     }
 
-    fn maximal_elements<I, CMP: Fn(&I, &I) -> Option<Ordering>>(values: Vec<I>, cmp: CMP) -> Vec<I> {
-        super::tag_maximal_elements(values, cmp).into_iter().filter(|&(_, m)| m).map(|(a, _)| a).collect()
+    fn maximal_elements<I, CMP: Fn(&I, &I) -> Option<Ordering>>(values: Vec<I>,
+                                                                cmp: CMP)
+                                                                -> Vec<I> {
+        super::tag_maximal_elements(values, cmp)
+            .into_iter()
+            .filter(|&(_, m)| m)
+            .map(|(a, _)| a)
+            .collect()
     }
 
     #[test]
     fn max_elements() {
         let values = vec!["ba", "baaar", "foo", "aa", "aaa", "a"];
-        assert_eq!(maximal_elements(values, cmp),
-                   vec!["baaar", "foo", "aaa"])
+        assert_eq!(maximal_elements(values, cmp), vec!["baaar", "foo", "aaa"])
     }
 
     #[derive(Copy,Clone,Debug,PartialEq)]
@@ -298,29 +309,34 @@ mod tests {
         let rule_set = RuleSet(vec![rule_int, rule_add, rule_mul]);
         let results = rule_set.apply_all("foo: 12 + 42, 12* 42").unwrap();
         let values: Vec<_> = results.iter().map(|pn| pn.value).collect();
-        assert_eq!(vec![Int(12), Int(42), Int(12), Int(42), Int(54), Int(504)], values);
+        assert_eq!(vec![Int(12), Int(42), Int(12), Int(42), Int(54), Int(504)],
+                   values);
     }
 
     rustling_value! {
         #[doc="an union"]
-        Value
+        MyValue MyValueKind
             UI(usize),
             FP(f32),
     }
 
     #[test]
     fn test_with_enum_value() {
-        let int = rule! { "int", (reg!(Value, "\\d+")),
+        let int = rule! { "int", (reg!(MyValue, "\\d+")),
                 |a| Ok(usize::from_str(&*a.group(0))?) };
-        let fp = rule! { "fp", (reg!(Value, "\\d+.\\d+")),
+        let fp = rule! { "fp", (reg!(MyValue, "\\d+.\\d+")),
                 |a| Ok(f32::from_str(&*a.group(0))?) };
         let pow = rule! { "pow",
-            (dim!(f32), reg!(Value, "\\^"), dim!(usize)),
+            (dim!(f32), reg!(MyValue, "\\^"), dim!(usize)),
            |a,_,b| Ok(a.value().powi(*b.value() as i32)) };
         let rule_set = RuleSet(vec![int, fp, pow]);
         let results = rule_set.apply_all("foo: 1.5^2").unwrap();
         let values: Vec<_> = results.into_iter().map(|pn| pn.value).collect();
-        assert_eq!(vec![Value::UI(1), Value::UI(5), Value::UI(2), Value::FP(1.5), Value::FP(2.25)],
+        assert_eq!(vec![MyValue::UI(1),
+                        MyValue::UI(5),
+                        MyValue::UI(2),
+                        MyValue::FP(1.5),
+                        MyValue::FP(2.25)],
                    values);
     }
 }
