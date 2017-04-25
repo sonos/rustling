@@ -4,4 +4,4 @@ version = "0.1.0"
 authors = ["hdlj <hubert.delajonquiere@snips.net>", "Mathieu Poumeyrol <kali@zoy.org>"]
 
 [dependencies]
-error-chain = "0.10"
+error-chain = { version="0.10", default-features=false }

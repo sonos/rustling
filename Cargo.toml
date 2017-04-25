@@ -9,4 +9,4 @@ members = ["core", "ml"]
 [dependencies]
 rustling-core = { path="core"}
 rustling-ml = { path="ml"}
-error-chain = "0.10"
+error-chain = { version="0.10", default-features=false }

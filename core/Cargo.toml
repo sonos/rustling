@@ -6,4 +6,4 @@ authors = ["hdlj <hubert.delajonquiere@snips.net>", "Mathieu Poumeyrol <kali@zoy
 [dependencies]
 regex = "0.2"
 smallvec = "0.3"
-error-chain = "0.10"
+error-chain = { version="0.10", default-features=false }
