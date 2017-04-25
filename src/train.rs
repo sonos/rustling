@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use {Classifier, Feature, FeatureExtractor, Model, Node, ParsedNode, RuleId, RuleSet, Truth, Value};
-use DucklingResult;
+use RustlingResult;
 
 #[derive(Debug)]
 pub struct Example<V: Value> {
@@ -28,7 +28,7 @@ pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
     (rules: &RuleSet<V>,
      examples: Vec<Example<V>>,
      feature_extractor: E)
-     -> DucklingResult<Model<RuleId, Truth, F>> {
+     -> RustlingResult<Model<RuleId, Truth, F>> {
     let mut classified_ex: HashMap<RuleId, Vec<(HashMap<F, usize>, Truth)>> = HashMap::new();
     for ex in examples.iter() {
         let stash = rules.apply_all(&ex.text.to_lowercase()).unwrap();

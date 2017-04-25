@@ -25,7 +25,7 @@ pub mod core {
 pub mod errors {
     error_chain! {
         types {
-            DucklingError, DucklingErrorKind, DucklingResultExt, DucklingResult;
+            RustlingError, RustlingErrorKind, RustlingResultExt, RustlingResult;
         }
         links {
             Core(::rustling_core::errors::CoreError, ::rustling_core::errors::CoreErrorKind);
@@ -116,7 +116,7 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
         }
     }
 
-    fn raw_candidates(&self, input: &str) -> DucklingResult<Vec<(ParsedNode<V>, ParserMatch<V>)>> {
+    fn raw_candidates(&self, input: &str) -> RustlingResult<Vec<(ParsedNode<V>, ParserMatch<V>)>> {
         self.rules
             .apply_all(input)?
             .into_iter()
@@ -137,7 +137,7 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
         (&self,
          input: &str,
          dimension_prio: S)
-         -> DucklingResult<Vec<(ParsedNode<V>, ParserMatch<V>, Option<usize>, bool)>> {
+         -> RustlingResult<Vec<(ParsedNode<V>, ParserMatch<V>, Option<usize>, bool)>> {
         let candidates = self.raw_candidates(input)?
             .into_iter()
             .map(|(pn, pm)| {
@@ -151,18 +151,18 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
                .collect())
     }
 
-    pub fn parse(&self, input: &str) -> DucklingResult<Vec<ParserMatch<V>>> {
+    pub fn parse(&self, input: &str) -> RustlingResult<Vec<ParserMatch<V>>> {
         self.parse_with(input, |_| Some(0))
     }
 
-    pub fn parse_with_kind_order(&self, input: &str, order:&[V::Kind]) -> DucklingResult<Vec<ParserMatch<V>>> {
+    pub fn parse_with_kind_order(&self, input: &str, order:&[V::Kind]) -> RustlingResult<Vec<ParserMatch<V>>> {
         self.parse_with(input, |it| order.iter().position(|k| *k==it.kind()))
     }
 
     pub fn parse_with<S: Fn(&V) -> Option<usize>>(&self,
                                                   input: &str,
                                                   dimension_prio: S)
-                                                  -> DucklingResult<Vec<ParserMatch<V>>> {
+                                                  -> RustlingResult<Vec<ParserMatch<V>>> {
         Ok(self.candidates(input, dimension_prio)?
                .into_iter()
                .filter(|a| a.3)
