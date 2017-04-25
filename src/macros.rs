@@ -23,6 +23,28 @@ macro_rules! rustling_value {
             }
         }
 
+        impl ::std::str::FromStr for $kindname {
+            type Err=String;
+            fn from_str(s: &str) -> ::std::result::Result<$kindname, Self::Err> {
+                match s {
+                    $(
+                        stringify!($varname) => Ok($kindname::$varname),
+                    )*
+                    _ => Err(format!("{} is not a known {}", s, stringify!($kindname)))
+                }
+            }
+        }
+
+        impl ::std::string::ToString for $kindname {
+            fn to_string(&self) -> String {
+                match self {
+                    $(
+                        &$kindname::$varname => stringify!($varname).to_string(),
+                    )*
+                }
+            }
+        }
+
         $(
             impl From<$varty> for $name {
                 fn from(v: $varty) -> $name {
