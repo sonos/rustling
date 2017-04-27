@@ -75,9 +75,11 @@ impl Match for Text {
     }
 }
 
+pub type PredicateMatches<M> = Vec<M>;
+
 pub trait Pattern<StashValue: Clone> {
     type M: Match;
-    fn predicate(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<Vec<Self::M>>;
+    fn predicate(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<PredicateMatches<Self::M>>;
 }
 
 
@@ -93,7 +95,7 @@ impl<StashValue: Clone> TextPattern<StashValue> {
 
 impl<StashValue: Clone> Pattern<StashValue> for TextPattern<StashValue> {
     type M=Text;
-    fn predicate(&self, _stash: &Stash<StashValue>, sentence: &str) -> CoreResult<Vec<Self::M>> {
+    fn predicate(&self, _stash: &Stash<StashValue>, sentence: &str) -> CoreResult<PredicateMatches<Self::M>> {
         self.0
             .captures_iter(&sentence)
             .map(|cap| {
@@ -142,7 +144,7 @@ impl<StashValue: Clone> TextNegLHPattern<StashValue> {
 
 impl<StashValue: Clone> Pattern<StashValue> for TextNegLHPattern<StashValue> {
     type M=Text;
-    fn predicate(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<Vec<Text>> {
+    fn predicate(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<PredicateMatches<Text>> {
         Ok(self.pattern.predicate(stash, sentence)?.into_iter().filter(|t| {
             match self.neg_look_ahead.find(&sentence[t.range().1..]) {
                 None => true,
@@ -190,7 +192,7 @@ impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
     fn predicate(&self,
                  stash: &Stash<StashValue>,
                  _sentence: &str)
-                 -> CoreResult<Vec<ParsedNode<V>>> {
+                 -> CoreResult<PredicateMatches<ParsedNode<V>>> {
         Ok(stash.iter()
             .filter_map(|it| if let Some(v) = V::attempt_from(it.value.clone()) {
                 if self.predicates.iter().all(|predicate| (predicate)(&v)) {

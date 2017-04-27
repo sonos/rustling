@@ -2,6 +2,7 @@ use ::*;
 use pattern::*;
 use errors::*;
 use rule::rule_errors::*;
+use smallvec::SmallVec;
 
 pub mod rule_errors {
     error_chain! {
@@ -51,11 +52,13 @@ impl<'a, V:Clone> RuleProductionArg<'a, ParsedNode<V>> {
     }
 }
 
+type ParsedNodes<StashValue> = SmallVec<[ParsedNode<StashValue>;1]>;
+
 pub trait Rule<StashValue: Clone> {
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
-             -> CoreResult<Vec<ParsedNode<StashValue>>>;
+             -> CoreResult<ParsedNodes<StashValue>>;
 }
 
 pub struct Rule1<PA, V, StashValue, F>
@@ -79,7 +82,7 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
-             -> CoreResult<Vec<ParsedNode<StashValue>>> {
+             -> CoreResult<ParsedNodes<StashValue>> {
         let matches = self.matches(&stash, sentence)?;
         matches.iter()
             .filter_map(|sub| {
@@ -120,7 +123,7 @@ impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
         }
     }
 
-    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<Vec<PA::M>> {
+    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<PredicateMatches<PA::M>> {
         self.pattern.predicate(stash, sentence)
     }
 }
@@ -154,7 +157,7 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
-             -> CoreResult<Vec<ParsedNode<StashValue>>> {
+             -> CoreResult<ParsedNodes<StashValue>> {
         let matches = self.matches(&stash, sentence)?;
         matches.iter()
             .filter_map(|sub| {
@@ -201,10 +204,13 @@ impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
         }
     }
 
-    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<Vec<(PA::M, PB::M)>> {
+    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<PredicateMatches<(PA::M, PB::M)>> {
+        let mut result = PredicateMatches::default();
         let matches_0 = self.pattern.0.predicate(stash, sentence)?;
+        if matches_0.is_empty() {
+            return Ok(result)
+        }
         let matches_1 = self.pattern.1.predicate(stash, sentence)?;
-        let mut result = vec![];
         for m0 in matches_0.iter() {
             for m1 in matches_1.iter() {
                 if adjacent(m0, m1, sentence) {
@@ -242,7 +248,7 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue>
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
-             -> CoreResult<Vec<ParsedNode<StashValue>>> {
+             -> CoreResult<ParsedNodes<StashValue>> {
         let matches = self.matches(&stash, sentence)?;
         matches.iter()
             .filter_map(|sub| {
@@ -284,11 +290,20 @@ impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
         }
     }
 
-    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<Vec<(PA::M, PB::M, PC::M)>> {
+    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<PredicateMatches<(PA::M, PB::M, PC::M)>> {
+        let mut result = PredicateMatches::default();
         let matches_0 = self.pattern.0.predicate(stash, sentence)?;
+        if matches_0.is_empty() {
+            return Ok(result)
+        }
         let matches_1 = self.pattern.1.predicate(stash, sentence)?;
+        if matches_1.is_empty() {
+            return Ok(result)
+        }
         let matches_2 = self.pattern.2.predicate(stash, sentence)?;
-        let mut result = vec![];
+        if matches_2.is_empty() {
+            return Ok(result)
+        }
         for m0 in matches_0.iter() {
             for m1 in matches_1.iter() {
                 if adjacent(m0, m1, sentence) {
