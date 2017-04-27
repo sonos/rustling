@@ -1,9 +1,12 @@
 #[macro_use]
 extern crate error_chain;
+extern crate fnv;
 
-use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
+use std::hash;
 use std::fmt::Debug;
+
+use fnv::FnvHashMap;
+use fnv::FnvHashSet;
 
 use errors::*;
 
@@ -15,9 +18,9 @@ pub mod errors {
     }
 }
 
-pub trait ClassifierId: Eq + Hash + Clone + Debug {}
-pub trait ClassId: Eq + Hash + Clone + Debug {}
-pub trait Feature: Eq + Hash + Clone + Debug {}
+pub trait ClassifierId: Eq + hash::Hash + Clone + Debug {}
+pub trait ClassId: Eq + hash::Hash + Clone + Debug {}
+pub trait Feature: Eq + hash::Hash + Clone + Debug {}
 
 pub struct Input<Id: ClassifierId, Feat: Feature> {
     pub classifier_id: Id,
@@ -27,12 +30,12 @@ pub struct Input<Id: ClassifierId, Feat: Feature> {
 
 #[derive(PartialEq,Debug,Clone)]
 pub struct Model<Id: ClassifierId, Class: ClassId, Feat: Feature> {
-    pub classifiers: HashMap<Id, Classifier<Class, Feat>>,
+    pub classifiers: FnvHashMap<Id, Classifier<Class, Feat>>,
 }
 
 #[derive(PartialEq,Debug,Clone)]
 pub struct Classifier<Id: ClassId, Feat: Feature> {
-    pub classes: HashMap<Id, ClassInfo<Feat>>,
+    pub classes: FnvHashMap<Id, ClassInfo<Feat>>,
 }
 
 #[derive(PartialEq,Debug,Clone)]
@@ -40,7 +43,7 @@ pub struct ClassInfo<Feat: Feature> {
     pub example_count: usize,
     pub unk_probalog: f32,
     pub class_probalog: f32,
-    pub feat_probalog: HashMap<Feat, f32>,
+    pub feat_probalog: FnvHashMap<Feat, f32>,
 }
 
 impl<Id: ClassifierId, Class: ClassId, Feat: Feature> Model<Id, Class, Feat> {
@@ -51,7 +54,7 @@ impl<Id: ClassifierId, Class: ClassId, Feat: Feature> Model<Id, Class, Feat> {
             return Ok(0.0);
         };
 
-        let mut bag_of_features: HashMap<Feat, usize> = HashMap::new();
+        let mut bag_of_features: FnvHashMap<Feat, usize> = FnvHashMap::default();
         for feat in &input.features {
             let counter = bag_of_features.entry(feat.clone()).or_insert(0);
             *counter += 1;
@@ -74,7 +77,7 @@ impl<Id: ClassId, Feat: Feature> Classifier<Id, Feat> {
     // max(log(π(Prob(feat|class)^count)*Prob(class))) =
     // max(sum(logprob(feat|class)*count + logprob(class))
 
-    pub fn scores(&self, bag_of_features: &HashMap<Feat, usize>) -> Vec<(Id, f32)> {
+    pub fn scores(&self, bag_of_features: &FnvHashMap<Feat, usize>) -> Vec<(Id, f32)> {
         let mut scores: Vec<_> = self.classes
             .iter()
             .map(|(cid, cinfo)| {
@@ -93,19 +96,19 @@ impl<Id: ClassId, Feat: Feature> Classifier<Id, Feat> {
         scores
     }
 
-    pub fn classify(&self, bag_of_features: &HashMap<Feat, usize>) -> MLResult<(Id, f32)> {
+    pub fn classify(&self, bag_of_features: &FnvHashMap<Feat, usize>) -> MLResult<(Id, f32)> {
         Ok(self.scores(bag_of_features)
             .into_iter()
             .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(::std::cmp::Ordering::Equal))
             .ok_or("no classes in classifier")?)
     }
 
-    pub fn train(examples: &Vec<(HashMap<Feat, usize>, Id)>) -> Classifier<Id, Feat> {
-        let mut classes: HashMap<Id, (usize, HashMap<Feat, usize>)> = HashMap::new();
+    pub fn train(examples: &Vec<(FnvHashMap<Feat, usize>, Id)>) -> Classifier<Id, Feat> {
+        let mut classes: FnvHashMap<Id, (usize, FnvHashMap<Feat, usize>)> = FnvHashMap::default();
         let total_examples = examples.len();
-        let mut all_features = HashSet::new();
+        let mut all_features = FnvHashSet::default();
         for &(ref features, ref class) in examples {
-            let mut data = classes.entry(class.clone()).or_insert_with(|| (0, HashMap::new()));
+            let mut data = classes.entry(class.clone()).or_insert_with(|| (0, FnvHashMap::default()));
             data.0 += 1;
             for (feat, count) in features {
                 all_features.insert(feat.clone());
@@ -138,12 +141,13 @@ impl<Id: ClassId, Feat: Feature> Classifier<Id, Feat> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fnv::FnvHashMap;
 
     macro_rules! hmap(
-        { } => { ::std::collections::HashMap::new() };
+        { } => { FnvHashMap::default() };
         { $($key:expr => $value:expr),+} => {
             {
-                let mut m = ::std::collections::HashMap::new();
+                let mut m = FnvHashMap::default();
                 $( m.insert($key, $value); )*
                 m
             }

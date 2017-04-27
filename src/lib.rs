@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate error_chain;
+extern crate fnv;
 extern crate rustling_core;
 extern crate rustling_ml;
 

@@ -10,3 +10,4 @@ members = ["core", "ml"]
 rustling-core = { path="core"}
 rustling-ml = { path="ml"}
 error-chain = { version="0.10", default-features=false }
+fnv = "1.0"

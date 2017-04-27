@@ -5,3 +5,4 @@ authors = ["hdlj <hubert.delajonquiere@snips.net>", "Mathieu Poumeyrol <kali@zoy
 
 [dependencies]
 error-chain = { version="0.10", default-features=false }
+fnv = "1.0"

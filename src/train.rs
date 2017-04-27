@@ -1,6 +1,7 @@
 use std::fmt::Debug;
-use std::collections::HashMap;
-use std::collections::HashSet;
+
+use fnv::FnvHashMap;
+use fnv::FnvHashSet;
 
 use {Classifier, Feature, FeatureExtractor, Model, Node, ParsedNode, RuleId, RuleSet, Truth, Value};
 use RustlingResult;
@@ -29,7 +30,7 @@ pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
      examples: Vec<Example<V>>,
      feature_extractor: E)
      -> RustlingResult<Model<RuleId, Truth, F>> {
-    let mut classified_ex: HashMap<RuleId, Vec<(HashMap<F, usize>, Truth)>> = HashMap::new();
+    let mut classified_ex: FnvHashMap<RuleId, Vec<(FnvHashMap<F, usize>, Truth)>> = FnvHashMap::default();
     for ex in examples.iter() {
         let stash = rules.apply_all(&ex.text.to_lowercase()).unwrap();
 
@@ -47,9 +48,9 @@ pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
         }
 
         // - expand parse nodes to nodes, according to the partition
-        let mut negative_nodes = HashSet::new();
-        let mut positive_nodes = HashSet::new();
-        fn add_to_set(nodes: &mut HashSet<Node>, node: &Node) {
+        let mut negative_nodes = FnvHashSet::default();
+        let mut positive_nodes = FnvHashSet::default();
+        fn add_to_set(nodes: &mut FnvHashSet<Node>, node: &Node) {
             nodes.insert(node.clone());
             for child in &node.children {
                 add_to_set(nodes, child);
@@ -71,7 +72,7 @@ pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
         // - put node counted features, with truth value in the trainable hashmaps
         for (nodes, truth) in vec![(positive_nodes, true), (negative_nodes, false)].into_iter() {
             for n in nodes.into_iter() {
-                let mut counted_features = HashMap::new();
+                let mut counted_features = FnvHashMap::default();
                 for f in feature_extractor.for_node(&n).features {
                     *counted_features.entry(f).or_insert(0) += 1;
                 }
