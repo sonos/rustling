@@ -1,4 +1,5 @@
-use ::std::cmp::{ PartialOrd, Ordering };
+use std::cmp::{ PartialOrd, Ordering };
+use std::rc;
 
 use smallvec::SmallVec;
 
@@ -33,7 +34,7 @@ impl PartialOrd for Range {
 
 pub trait Match: Clone {
     fn range(&self) -> Range;
-    fn to_node(&self) -> Node;
+    fn to_node(&self) -> rc::Rc<Node>;
 }
 
 impl<V: Clone> Match for ParsedNode<V> {
@@ -41,7 +42,7 @@ impl<V: Clone> Match for ParsedNode<V> {
         self.root_node.range
     }
 
-    fn to_node(&self) -> Node {
+    fn to_node(&self) -> rc::Rc<Node> {
         self.root_node.clone()
     }
 }
@@ -66,12 +67,12 @@ impl Match for Text {
         self.range
     }
 
-    fn to_node(&self) -> Node {
-        Node {
+    fn to_node(&self) -> rc::Rc<Node> {
+        rc::Rc::new(Node {
             rule_name: self.pattern_name,
             range: self.range(),
-            children: vec![],
-        }
+            children: SmallVec::new(),
+        })
     }
 }
 

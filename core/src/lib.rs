@@ -3,8 +3,12 @@ extern crate error_chain;
 pub extern crate regex;
 extern crate smallvec;
 
+use smallvec::SmallVec;
+use std::rc;
+
 pub mod pattern;
 pub mod rule;
+
 
 use rule::Rule;
 pub use pattern::Range;
@@ -37,31 +41,33 @@ impl<S,T> AttemptTo<T> for S where S:Clone, T: AttemptFrom<S> {
     }
 }
 
+pub type ChildrenNodes = SmallVec<[rc::Rc<Node>;2]>;
+
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct Node {
     pub rule_name: &'static str,
     pub range: Range,
-    pub children: Vec<Node>,
+    pub children: ChildrenNodes,
 }
 
 impl Node {
-    fn new(name: &'static str, range: Range, children: Vec<Node>) -> Node {
-        Node {
+    fn new(name: &'static str, range: Range, children: ChildrenNodes) -> rc::Rc<Node> {
+        rc::Rc::new(Node {
             rule_name: name,
             range: range,
             children: children,
-        }
+        })
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ParsedNode<V: Clone> {
-    pub root_node: Node,
+    pub root_node: rc::Rc<Node>,
     pub value: V,
 }
 
 impl<V: Clone> ParsedNode<V> {
-    fn new(name: &'static str, v: V, r: Range, children: Vec<Node>) -> ParsedNode<V> {
+    fn new(name: &'static str, v: V, r: Range, children: ChildrenNodes) -> ParsedNode<V> {
         ParsedNode {
             root_node: Node::new(name, r, children),
             value: v,

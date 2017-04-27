@@ -26,6 +26,15 @@ fn make_production_error(s:RuleError) -> CoreError {
 
 }
 
+macro_rules! svec {
+    ($($item:expr),*) => { {
+        let mut v = ::smallvec::SmallVec::new();
+        $( v.push($item); )*
+        v
+    }
+    }
+}
+
 pub struct RuleProductionArg<'a, M:Match + 'a> {
     sentence: &'a str,
     match_: &'a M,
@@ -86,7 +95,7 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
         let matches = self.matches(&stash, sentence)?;
         matches.iter()
             .filter_map(|sub| {
-                let nodes = vec![sub.to_node()];
+                let nodes = svec![sub.to_node()];
                 if stash.iter().all(|old_node| {
                     old_node.root_node.children != nodes ||
                     old_node.root_node.rule_name != self.name
@@ -96,7 +105,7 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
                             Some(Ok(ParsedNode::new(self.name,
                                                     StashValue::from(v),
                                                     sub.range(),
-                                                    vec![sub.to_node()])))
+                                                    nodes)))
                         }
                         Err(e) => Some(Err(make_production_error(e))),
                     }
@@ -161,7 +170,7 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
         let matches = self.matches(&stash, sentence)?;
         matches.iter()
             .filter_map(|sub| {
-                let nodes = vec![sub.0.to_node(), sub.1.to_node()];
+                let nodes = svec![sub.0.to_node(), sub.1.to_node()];
                 if stash.iter().all(|old_node| {
                     old_node.root_node.children != nodes ||
                     old_node.root_node.rule_name != self.name
@@ -172,7 +181,7 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
                             Some(Ok(ParsedNode::new(self.name,
                                                     v.into(),
                                                     range,
-                                                    vec![sub.0.to_node(), sub.1.to_node()])))
+                                                    nodes)))
                         }
                         Err(RuleError(RuleErrorKind::Invalid, _)) => None,
                         Err(e) => Some(Err(make_production_error(e))),
@@ -252,7 +261,7 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue>
         let matches = self.matches(&stash, sentence)?;
         matches.iter()
             .filter_map(|sub| {
-                let nodes = vec![sub.0.to_node(), sub.1.to_node()];
+                let nodes = svec!(sub.0.to_node(), sub.1.to_node());
                 if stash.iter().all(|old_node| {
                     old_node.root_node.children != nodes ||
                     old_node.root_node.rule_name != self.name
