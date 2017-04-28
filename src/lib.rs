@@ -49,7 +49,7 @@ impl ClassifierId for RuleId {}
 pub struct Truth(pub bool);
 impl ClassId for Truth {}
 
-pub trait Value: Clone + PartialEq + ::std::fmt::Debug {
+pub trait Value: Clone + PartialEq + ::std::fmt::Debug + Send + Sync {
     type Kind: PartialEq;
     fn kind(&self) -> Self::Kind;
 }

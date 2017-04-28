@@ -77,9 +77,9 @@ impl<V: Clone> ParsedNode<V> {
 
 pub type Stash<V> = Vec<ParsedNode<V>>;
 
-pub struct RuleSet<StashValue: Clone>(pub Vec<Box<Rule<StashValue>>>);
+pub struct RuleSet<StashValue: Clone + Send + Sync>(pub Vec<Box<Rule<StashValue>>>);
 
-impl<V: Clone> RuleSet<V> {
+impl<V: Clone + Send + Sync> RuleSet<V> {
     fn apply_once(&self, stash: &mut Stash<V>, sentence: &str) -> CoreResult<()> {
         let mut produced_nodes = vec!();
         for rule in &self.0 {
