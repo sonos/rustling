@@ -355,12 +355,31 @@ impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
 
 
 #[cfg(test)]
+#[allow(unused_mut)]
 mod tests {
     use rule::*;
 
-    macro_rules! svec {
+    macro_rules! svec2 {
         ($($item:expr),*) => { {
             let mut v = ::smallvec::SmallVec::new();
+            $( v.push($item); )*
+            v
+        }
+        }
+    }
+
+    macro_rules! svec2 {
+        ($($item:expr),*) => { {
+            let mut v = ::smallvec::SmallVec::<[_;2]>::new();
+            $( v.push($item); )*
+            v
+        }
+        }
+    }
+
+    macro_rules! svec4 {
+        ($($item:expr),*) => { {
+            let mut v = ::smallvec::SmallVec::<[_;4]>::new();
             $( v.push($item); )*
             v
         }
@@ -385,14 +404,14 @@ mod tests {
         assert_eq!(vec![Text::new(svec![Range(8, 11)], Range(8, 11), "ten"),
                         Text::new(svec![Range(12, 15)], Range(12, 15), "ten")],
                    rule.matches(&vec![], "foobar: ten ten").unwrap());
-        assert_eq!(vec![ParsedNode::new("ten",
-                                        10,
+        assert_eq!(svec4![ParsedNode::new("ten",
+                                        10usize,
                                         Range(8, 11),
-                                        vec![Node::new("ten", Range(8, 11), vec![])]),
+                                        svec![Node::new("ten", Range(8, 11), svec![])]),
                         ParsedNode::new("ten",
-                                        10,
+                                        10usize,
                                         Range(12, 15),
-                                        vec![Node::new("ten", Range(12, 15), vec![])])],
+                                        svec![Node::new("ten", Range(12, 15), svec![])])],
                    rule.apply(&vec![], "foobar: ten ten").unwrap())
     }
 
@@ -405,14 +424,14 @@ mod tests {
                                                                              *integer == 10
                                                                          })])),
                        |a, b| Ok(a.value() + b.value()));
-        let stash: Stash<usize> = vec![ParsedNode::new("ten", 10, Range(8, 11), vec![]),
-                                       ParsedNode::new("ten", 10, Range(12, 15), vec![])];
+        let stash: Stash<usize> = vec![ParsedNode::new("ten", 10, Range(8, 11), svec![]),
+                                       ParsedNode::new("ten", 10, Range(12, 15), svec![])];
         assert_eq!(vec![(stash[0].clone(), stash[1].clone())],
                    rule_consec.matches(&stash, "foobar: ten ten").unwrap());
-        assert_eq!(vec![ParsedNode::new("2 consecutive ints",
+        assert_eq!(svec4![ParsedNode::new("2 consecutive ints",
                                         20,
                                         Range(8, 15),
-                                        vec![stash[0].root_node.clone(),
+                                        svec![stash[0].root_node.clone(),
                                              stash[1].root_node.clone()])],
                    rule_consec.apply(&stash, "foobar: ten ten").unwrap());
     }
@@ -423,10 +442,10 @@ mod tests {
         let rule_int = Rule1::new("int",
                                   (reg!(usize, "\\d+")),
                                   |a| Ok(usize::from_str(&*a.group(0))?));
-        assert_eq!(vec![ParsedNode::new("int",
+        assert_eq!(svec4![ParsedNode::new("int",
                                         42,
                                         Range(8, 10),
-                                        vec![Node::new("\\d+", Range(8, 10), vec![])])],
+                                        svec![Node::new("\\d+", Range(8, 10), svec![])])],
                    rule_int.apply(&vec![], "foobar: 42").unwrap());
     }
 
