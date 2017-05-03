@@ -35,13 +35,16 @@ pub trait AttemptTo<T>: Sized {
     fn attempt_to(&self) -> Option<T>;
 }
 
-impl<S,T> AttemptTo<T> for S where S:Clone, T: AttemptFrom<S> {
+impl<S, T> AttemptTo<T> for S
+    where S: Clone,
+          T: AttemptFrom<S>
+{
     fn attempt_to(&self) -> Option<T> {
         T::attempt_from(self.clone())
     }
 }
 
-pub type ChildrenNodes = SmallVec<[rc::Rc<Node>;2]>;
+pub type ChildrenNodes = SmallVec<[rc::Rc<Node>; 2]>;
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct Node {
@@ -53,10 +56,10 @@ pub struct Node {
 impl Node {
     fn new(name: &'static str, range: Range, children: ChildrenNodes) -> rc::Rc<Node> {
         rc::Rc::new(Node {
-            rule_name: name,
-            range: range,
-            children: children,
-        })
+                        rule_name: name,
+                        range: range,
+                        children: children,
+                    })
     }
 }
 
@@ -81,7 +84,7 @@ pub struct RuleSet<StashValue: Clone + Send + Sync>(pub Vec<Box<Rule<StashValue>
 
 impl<V: Clone + Send + Sync> RuleSet<V> {
     fn apply_once(&self, stash: &mut Stash<V>, sentence: &str) -> CoreResult<()> {
-        let mut produced_nodes = vec!();
+        let mut produced_nodes = vec![];
         for rule in &self.0 {
             produced_nodes.extend(rule.apply(stash, sentence)?);
         }
@@ -104,4 +107,3 @@ impl<V: Clone + Send + Sync> RuleSet<V> {
         Ok(stash)
     }
 }
-

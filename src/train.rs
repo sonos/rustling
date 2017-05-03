@@ -30,7 +30,8 @@ pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
      examples: Vec<Example<V>>,
      feature_extractor: E)
      -> RustlingResult<Model<RuleId, Truth, F>> {
-    let mut classified_ex: FnvHashMap<RuleId, Vec<(FnvHashMap<F, usize>, Truth)>> = FnvHashMap::default();
+    let mut classified_ex: FnvHashMap<RuleId, Vec<(FnvHashMap<F, usize>, Truth)>> =
+        FnvHashMap::default();
     for ex in examples.iter() {
         let stash = rules.apply_all(&ex.text.to_lowercase()).unwrap();
 
