@@ -77,7 +77,7 @@ pub struct Rule1<PA, V, StashValue, F>
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V>,
           PA: Pattern<StashValue>
 {
-    name: &'static str,
+    sym: Sym,
     pattern: PA,
     production: F,
     _phantom: ::std::marker::PhantomData<(V, StashValue)>,
@@ -102,11 +102,11 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
                        .iter()
                        .all(|old_node| {
                                 old_node.root_node.children != nodes ||
-                                old_node.root_node.rule_name != self.name
+                                old_node.root_node.rule_sym != self.sym
                             }) {
                     match (self.production)(&RuleProductionArg::new(sentence, sub)) {
                         Ok(v) => {
-                            Some(Ok(ParsedNode::new(self.name,
+                            Some(Ok(ParsedNode::new(self.sym,
                                                     StashValue::from(v),
                                                     sub.range(),
                                                     nodes)))
@@ -127,9 +127,9 @@ impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V>,
           PA: Pattern<StashValue>
 {
-    pub fn new(name: &'static str, pat: PA, prod: F) -> Rule1<PA, V, StashValue, F> {
+    pub fn new(sym: Sym, pat: PA, prod: F) -> Rule1<PA, V, StashValue, F> {
         Rule1 {
-            name: name,
+            sym: sym,
             pattern: pat,
             production: prod,
             _phantom: ::std::marker::PhantomData,
@@ -158,7 +158,7 @@ pub struct Rule2<PA, PB, V, StashValue, F>
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
 {
-    name: &'static str,
+    sym: Sym,
     pattern: (PA, PB),
     production: F,
     _phantom: ::std::marker::PhantomData<(V,  StashValue)>,
@@ -182,12 +182,12 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
                 let nodes = svec![sub.0.to_node(), sub.1.to_node()];
                 if stash.iter().all(|old_node| {
                     old_node.root_node.children != nodes ||
-                    old_node.root_node.rule_name != self.name
+                    old_node.root_node.rule_sym != self.sym
                 }) {
                     let range = Range(sub.0.range().0, sub.1.range().1);
                     match (self.production)(&RuleProductionArg::new(sentence, &sub.0), &RuleProductionArg::new(sentence, &sub.1)) {
                         Ok(v) => {
-                            Some(Ok(ParsedNode::new(self.name,
+                            Some(Ok(ParsedNode::new(self.sym,
                                                     v.into(),
                                                     range,
                                                     nodes)))
@@ -210,12 +210,12 @@ impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
 {
-    pub fn new(name: &'static str,
+    pub fn new(sym: Sym,
                pat: (PA, PB),
                prod: F)
                -> Rule2<PA, PB, V, StashValue, F> {
         Rule2 {
-            name: name,
+            sym: sym,
             pattern: pat,
             production: prod,
             _phantom: ::std::marker::PhantomData,
@@ -251,7 +251,7 @@ pub struct Rule3<PA, PB, PC, V, StashValue, F>
           PB: Pattern<StashValue>,
           PC: Pattern<StashValue>
 {
-    name: &'static str,
+    sym: Sym,
     pattern: (PA, PB, PC),
     production: F,
     _phantom: ::std::marker::PhantomData<(V, StashValue)>,
@@ -281,13 +281,13 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, Sta
                        .iter()
                        .all(|old_node| {
                                 old_node.root_node.children != nodes ||
-                                old_node.root_node.rule_name != self.name
+                                old_node.root_node.rule_sym != self.sym
                             }) {
                     let range = Range(sub.0.range().0, sub.2.range().1);
                     match (self.production)(&RuleProductionArg::new(sentence, &sub.0),
                                             &RuleProductionArg::new(sentence, &sub.1),
                                             &RuleProductionArg::new(sentence, &sub.2)) {
-                        Ok(v) => Some(Ok(ParsedNode::new(self.name, v.into(), range, nodes))),
+                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), range, nodes))),
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
@@ -309,12 +309,9 @@ impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
           PB: Pattern<StashValue>,
           PC: Pattern<StashValue>
 {
-    pub fn new(name: &'static str,
-               pat: (PA, PB, PC),
-               prod: F)
-               -> Rule3<PA, PB, PC, V, StashValue, F> {
+    pub fn new(sym: Sym, pat: (PA, PB, PC), prod: F) -> Rule3<PA, PB, PC, V, StashValue, F> {
         Rule3 {
-            name: name,
+            sym: sym,
             pattern: pat,
             production: prod,
             _phantom: ::std::marker::PhantomData,
@@ -393,42 +390,45 @@ mod tests {
     }
 
     macro_rules! reg {
-        ($typ:ty, $pattern:expr) => ( $crate::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $pattern) )
+        ($st:expr, $typ:ty, $pattern:expr) => ( $crate::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $st.sym($pattern)) )
     }
 
     #[test]
     fn test_integer_numeric_en_rule() {
-        let rule = Rule1::new("ten", (reg!(usize, "ten")), |_| Ok(10usize));
-        assert_eq!(vec![Text::new(svec![Range(8, 11)], Range(8, 11), "ten")],
+        let mut st = ::SymbolTable::default();
+        let ten = st.sym("ten");
+        let rule = Rule1::new(ten, (reg!(st, usize, "ten")), |_| Ok(10usize));
+        assert_eq!(vec![Text::new(svec![Range(8, 11)], Range(8, 11), ten)],
                    rule.matches(&vec![], "foobar: ten").unwrap());
-        assert_eq!(vec![Text::new(svec![Range(8, 11)], Range(8, 11), "ten"),
-                        Text::new(svec![Range(12, 15)], Range(12, 15), "ten")],
+        assert_eq!(vec![Text::new(svec![Range(8, 11)], Range(8, 11), ten),
+                        Text::new(svec![Range(12, 15)], Range(12, 15), ten)],
                    rule.matches(&vec![], "foobar: ten ten").unwrap());
-        assert_eq!(svec4![ParsedNode::new("ten",
+        assert_eq!(svec4![ParsedNode::new(ten,
                                           10usize,
                                           Range(8, 11),
-                                          svec![Node::new("ten", Range(8, 11), svec![])]),
-                          ParsedNode::new("ten",
+                                          svec![Node::new(ten, Range(8, 11), svec![])]),
+                          ParsedNode::new(ten,
                                           10usize,
                                           Range(12, 15),
-                                          svec![Node::new("ten", Range(12, 15), svec![])])],
+                                          svec![Node::new(ten, Range(12, 15), svec![])])],
                    rule.apply(&vec![], "foobar: ten ten").unwrap())
     }
 
     #[test]
     fn test_integer_numeric_compo_en_rule() {
+        let mut st = ::SymbolTable::default();
         let rule_consec =
-            Rule2::new("2 consecutive ints",
+            Rule2::new(st.sym("2 consecutive ints"),
                        (AnyNodePattern::<usize>::new(),
                         FilterNodePattern::<usize>::filter(vec![Box::new(|integer: &usize| {
                                                                              *integer == 10
                                                                          })])),
                        |a, b| Ok(a.value() + b.value()));
-        let stash: Stash<usize> = vec![ParsedNode::new("ten", 10, Range(8, 11), svec![]),
-                                       ParsedNode::new("ten", 10, Range(12, 15), svec![])];
+        let stash: Stash<usize> = vec![ParsedNode::new(st.sym("ten"), 10, Range(8, 11), svec![]),
+                                       ParsedNode::new(st.sym("ten"), 10, Range(12, 15), svec![])];
         assert_eq!(vec![(stash[0].clone(), stash[1].clone())],
                    rule_consec.matches(&stash, "foobar: ten ten").unwrap());
-        assert_eq!(svec4![ParsedNode::new("2 consecutive ints",
+        assert_eq!(svec4![ParsedNode::new(st.sym("2 consecutive ints"),
                                           20,
                                           Range(8, 15),
                                           svec![stash[0].root_node.clone(),
@@ -439,13 +439,16 @@ mod tests {
     #[test]
     fn test_integer_numeric_int_rule() {
         use std::str::FromStr;
-        let rule_int = Rule1::new("int",
-                                  (reg!(usize, "\\d+")),
+        let mut st = ::SymbolTable::default();
+        let rule_int = Rule1::new(st.sym("int"),
+                                  (reg!(st, usize, "\\d+")),
                                   |a| Ok(usize::from_str(&*a.group(0))?));
-        assert_eq!(svec4![ParsedNode::new("int",
+        assert_eq!(svec4![ParsedNode::new(st.sym("int"),
                                           42,
                                           Range(8, 10),
-                                          svec![Node::new("\\d+", Range(8, 10), svec![])])],
+                                          svec![Node::new(st.sym("\\d+"),
+                                                          Range(8, 10),
+                                                          svec![])])],
                    rule_int.apply(&vec![], "foobar: 42").unwrap());
     }
 

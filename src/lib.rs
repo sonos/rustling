@@ -7,7 +7,8 @@ extern crate rustling_ml;
 use std::cmp::{PartialOrd, Ordering};
 
 pub use rustling_core::regex;
-pub use rustling_core::{AttemptFrom, AttemptTo, Node, ParsedNode, Range, RuleSet};
+pub use rustling_core::{AttemptFrom, AttemptTo, Sym, Node, ParsedNode, Range, RuleSet,
+                        RuleSetBuilder};
 pub use rustling_core::{RuleError, RuleErrorKind, RuleResult};
 pub use rustling_ml::{ClassId, Classifier, ClassifierId, Feature, Input, Model};
 pub use train::{Check, Example};
@@ -42,7 +43,7 @@ pub mod errors {
 }
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
-pub struct RuleId(pub &'static str);
+pub struct RuleId(pub Sym);
 impl ClassifierId for RuleId {}
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
@@ -199,7 +200,7 @@ mod tests {
 
     use super::*;
 
-    fn cmp(a: &&'static str, b: &&'static str) -> Option<Ordering> {
+    fn cmp(a: &&str, b: &&str) -> Option<Ordering> {
         if a == b {
             Some(Ordering::Equal)
         } else if a.starts_with(b) {
@@ -246,23 +247,19 @@ mod tests {
         }
     }
 
-    macro_rules! reg {
-        ($typ:ty, $pattern:expr) => ( $crate::core::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $pattern) )
-    }
-
     fn rules() -> RuleSet<Int> {
-        let mut rule_set = RuleSet::default();
-        rule_set.rule_1("integer (numeric)",
-                        (reg!(Int, r#"(\d{1,18})"#)),
-                        |text_match| Ok(Int(text_match.group(0).parse::<usize>()?)));
-        rule_set.rule_1("integer (thousand)",
-                        (reg!(Int, "thousands?")),
-                        |_| Ok(Int(1000)));
-        rule_set.rule_2("number thousands",
-                        dim!(Int, vec![Box::new(|a: &Int| a.0 > 1 && a.0 < 99)]),
-                        dim!(Int, vec![Box::new(|a: &Int| a.0 == 1000)]),
-                        |a, _| Ok(Int(a.value().0 * 1000)));
-        rule_set
+        let b = RuleSetBuilder::default();
+        b.rule_1("integer (numeric)",
+                 b.reg(r#"(\d{1,18})"#).unwrap(),
+                 |text_match| Ok(Int(text_match.group(0).parse::<usize>()?)));
+        b.rule_1("integer (thousand)",
+                 b.reg("thousands?").unwrap(),
+                 |_| Ok(Int(1000)));
+        b.rule_2("number thousands",
+                 dim!(Int, vec![Box::new(|a: &Int| a.0 > 1 && a.0 < 99)]),
+                 dim!(Int, vec![Box::new(|a: &Int| a.0 == 1000)]),
+                 |a, _| Ok(Int(a.value().0 * 1000)));
+        b.build()
     }
 
     #[test]
@@ -276,20 +273,21 @@ mod tests {
 
     #[test]
     fn test_integer_numeric_infix_rule() {
-        let mut rs = RuleSet::default();
-        rs.rule_1("int",
-                  reg!(Int, "\\d+"),
-                  |a| Ok(Int(usize::from_str(&*a.group(0))?)));
-        rs.rule_3("add",
-                  dim!(Int),
-                  reg!(Int, "\\+"),
-                  dim!(Int),
-                  |a, _, b| Ok(Int(a.value().0 + b.value().0)));
-        rs.rule_3("mul",
-                  dim!(Int),
-                  reg!(Int, "\\*"),
-                  dim!(Int),
-                  |a, _, b| Ok(Int(a.value().0 * b.value().0)));
+        let b = RuleSetBuilder::default();
+        b.rule_1("int",
+                 b.reg("\\d+").unwrap(),
+                 |a| Ok(Int(usize::from_str(&*a.group(0))?)));
+        b.rule_3("add",
+                 dim!(Int),
+                 b.reg("\\+").unwrap(),
+                 dim!(Int),
+                 |a, _, b| Ok(Int(a.value().0 + b.value().0)));
+        b.rule_3("mul",
+                 dim!(Int),
+                 b.reg("\\*").unwrap(),
+                 dim!(Int),
+                 |a, _, b| Ok(Int(a.value().0 * b.value().0)));
+        let rs = b.build();
         let results = rs.apply_all("foo: 12 + 42, 12* 42").unwrap();
         let values: Vec<_> = results.iter().map(|pn| pn.value).collect();
         assert_eq!(vec![Int(12), Int(42), Int(12), Int(42), Int(54), Int(504)],
@@ -305,18 +303,19 @@ mod tests {
 
     #[test]
     fn test_with_enum_value() {
-        let mut rule_set = RuleSet::default();
-        rule_set.rule_1("int",
-                        reg!(MyValue, "\\d+"),
-                        |a| Ok(usize::from_str(&*a.group(0))?));
-        rule_set.rule_1("fp",
-                        (reg!(MyValue, "\\d+.\\d+")),
-                        |a| Ok(f32::from_str(&*a.group(0))?));
-        rule_set.rule_3("pow",
-                        dim!(f32),
-                        reg!(MyValue, "\\^"),
-                        dim!(usize),
-                        |a, _, b| Ok(a.value().powi(*b.value() as i32)));
+        let b = RuleSetBuilder::default();
+        b.rule_1("int",
+                 b.reg("\\d+").unwrap(),
+                 |a| Ok(usize::from_str(&*a.group(0))?));
+        b.rule_1("fp",
+                 b.reg("\\d+.\\d+").unwrap(),
+                 |a| Ok(f32::from_str(&*a.group(0))?));
+        b.rule_3("pow",
+                 dim!(f32),
+                 b.reg("\\^").unwrap(),
+                 dim!(usize),
+                 |a, _, b| Ok(a.value().powi(*b.value() as i32)));
+        let rule_set = b.build();
         let results = rule_set.apply_all("foo: 1.5^2").unwrap();
         let values: Vec<_> = results.into_iter().map(|pn| pn.value).collect();
         assert_eq!(vec![MyValue::UI(1),

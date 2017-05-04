@@ -3,7 +3,8 @@ use std::fmt::Debug;
 use fnv::FnvHashMap;
 use fnv::FnvHashSet;
 
-use {Classifier, Feature, FeatureExtractor, Model, Node, ParsedNode, RuleId, RuleSet, Truth, Value};
+use {Classifier, Feature, FeatureExtractor, Model, Node, ParsedNode, RuleId, RuleSet, Truth,
+     Value};
 use RustlingResult;
 
 #[derive(Debug)]
@@ -78,7 +79,7 @@ pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
                     *counted_features.entry(f).or_insert(0) += 1;
                 }
                 classified_ex
-                    .entry(::RuleId(n.rule_name))
+                    .entry(::RuleId(n.rule_sym))
                     .or_insert(vec![])
                     .push((counted_features, ::Truth(truth)));
             }

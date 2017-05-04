@@ -4,7 +4,7 @@ use std::rc;
 use smallvec::SmallVec;
 
 use errors::*;
-use {AttemptFrom, Node, ParsedNode, Stash};
+use {AttemptFrom, Sym, Node, ParsedNode, Stash};
 
 /// Represent a semi-inclusive range of position, in bytes, in the matched
 /// sentence.
@@ -50,15 +50,15 @@ impl<V: Clone> Match for ParsedNode<V> {
 pub struct Text {
     pub groups: SmallVec<[Range; 4]>,
     range: Range,
-    pattern_name: &'static str,
+    pattern_sym: Sym,
 }
 
 impl Text {
-    pub fn new(groups: SmallVec<[Range; 4]>, range: Range, pattern_name: &'static str) -> Text {
+    pub fn new(groups: SmallVec<[Range; 4]>, range: Range, pattern_sym: Sym) -> Text {
         Text {
             groups: groups,
             range: range,
-            pattern_name: pattern_name,
+            pattern_sym: pattern_sym,
         }
     }
 }
@@ -70,7 +70,7 @@ impl Match for Text {
 
     fn to_node(&self) -> rc::Rc<Node> {
         rc::Rc::new(Node {
-                        rule_name: self.pattern_name,
+                        rule_sym: self.pattern_sym,
                         range: self.range(),
                         children: SmallVec::new(),
                     })
@@ -89,12 +89,12 @@ pub trait Pattern<StashValue: Clone + Send + Sync>: Send + Sync {
 
 
 pub struct TextPattern<StashValue: Clone + Send + Sync>(::regex::Regex,
-                                                        &'static str,
+                                                        Sym,
                                                         ::std::marker::PhantomData<StashValue>);
 
 impl<StashValue: Clone + Send + Sync> TextPattern<StashValue> {
-    pub fn new(regex: ::regex::Regex, name: &'static str) -> TextPattern<StashValue> {
-        TextPattern(regex, name, ::std::marker::PhantomData)
+    pub fn new(regex: ::regex::Regex, sym: Sym) -> TextPattern<StashValue> {
+        TextPattern(regex, sym, ::std::marker::PhantomData)
     }
 }
 
@@ -109,7 +109,7 @@ impl<StashValue: Clone + Send + Sync> Pattern<StashValue> for TextPattern<StashV
             .map(|cap| {
                 let full = cap.get(0)
                     .ok_or_else(|| {
-                                    format!("No capture for regexp {} in rule {} for sentence: {}",
+                                    format!("No capture for regexp {} in rule {:?} for sentence: {}",
                                             self.0,
                                             self.1,
                                             sentence)
@@ -118,7 +118,7 @@ impl<StashValue: Clone + Send + Sync> Pattern<StashValue> for TextPattern<StashV
                 let mut groups = SmallVec::new();
                 for (ix, group) in cap.iter().enumerate() {
                     let group = group.ok_or_else(|| {
-                            format!("No capture for regexp {} in rule {}, group number {} in \
+                            format!("No capture for regexp {} in rule {:?}, group number {} in \
                                      capture: {}",
                                     self.0,
                                     self.1,
@@ -131,7 +131,7 @@ impl<StashValue: Clone + Send + Sync> Pattern<StashValue> for TextPattern<StashV
                 Ok(Text {
                        groups: groups,
                        range: full_range,
-                       pattern_name: self.1,
+                       pattern_sym: self.1,
                    })
             })
             .collect()
@@ -141,18 +141,18 @@ impl<StashValue: Clone + Send + Sync> Pattern<StashValue> for TextPattern<StashV
 pub struct TextNegLHPattern<StashValue: Clone + Send + Sync> {
     pattern: TextPattern<StashValue>,
     neg_look_ahead: ::regex::Regex,
-    pattern_name: &'static str,
+    pattern_sym: Sym,
 }
 
 impl<StashValue: Clone + Send + Sync> TextNegLHPattern<StashValue> {
     pub fn new(pattern: TextPattern<StashValue>,
                neg_look_ahead: ::regex::Regex,
-               pattern_name: &'static str)
+               pattern_sym: Sym)
                -> TextNegLHPattern<StashValue> {
         TextNegLHPattern {
             pattern: pattern,
             neg_look_ahead: neg_look_ahead,
-            pattern_name: pattern_name,
+            pattern_sym: pattern_sym,
         }
     }
 }
@@ -172,7 +172,7 @@ impl<StashValue: Clone + Send + Sync> Pattern<StashValue> for TextNegLHPattern<S
                        })
                .map(|t| {
                         Text {
-                            pattern_name: self.pattern_name,
+                            pattern_sym: self.pattern_sym,
                             ..t
                         }
                     })
@@ -222,7 +222,7 @@ impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
                .iter()
                .filter_map(|it| if let Some(v) = V::attempt_from(it.value.clone()) {
                                if self.predicates.iter().all(|predicate| (predicate)(&v)) {
-                                   Some(ParsedNode::new(it.root_node.rule_name,
+                                   Some(ParsedNode::new(it.root_node.rule_sym,
                                                         v,
                                                         it.range(),
                                                         it.root_node.children.clone()))

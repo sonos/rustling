@@ -4,24 +4,30 @@ pub extern crate regex;
 extern crate smallvec;
 extern crate string_interner;
 
+use string_interner::StringInterner;
+
 use smallvec::SmallVec;
-use std::rc;
+use std::{rc, cell};
 
 pub mod pattern;
 pub mod rule;
+mod builder;
 
-
-use rule::{Rule, Rule1, Rule2, Rule3, RuleProductionArg};
+use rule::Rule;
 use pattern::Pattern;
 pub use pattern::Range;
-
 pub use rule::rule_errors::*;
+
+pub use builder::RuleSetBuilder;
 
 use errors::*;
 pub mod errors {
     error_chain! {
         types {
             CoreError, CoreErrorKind, CoreResultExit, CoreResult;
+        }
+        foreign_links {
+            Regex(::regex::Error);
         }
         errors {
             ProductionRuleError(t: String)
@@ -48,17 +54,47 @@ impl<S, T> AttemptTo<T> for S
 
 pub type ChildrenNodes = SmallVec<[rc::Rc<Node>; 2]>;
 
+#[derive(Copy,Ord,Eq,Clone,PartialEq,PartialOrd,Debug,Hash)]
+pub struct Sym(usize);
+impl string_interner::NonNegative for Sym {}
+impl From<usize> for Sym {
+    fn from(it: usize) -> Sym {
+        Sym(it)
+    }
+}
+impl From<Sym> for usize {
+    fn from(it: Sym) -> usize {
+        it.0
+    }
+}
+
+pub struct SymbolTable(StringInterner<Sym>);
+
+impl Default for SymbolTable {
+    fn default() -> SymbolTable {
+        SymbolTable(string_interner::StringInterner::new())
+    }
+}
+
+impl SymbolTable {
+    pub fn sym<T>(&mut self, val: T) -> Sym
+        where T: Into<String> + AsRef<str>
+    {
+        self.0.get_or_intern(val)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct Node {
-    pub rule_name: &'static str,
+    pub rule_sym: Sym,
     pub range: Range,
     pub children: ChildrenNodes,
 }
 
 impl Node {
-    fn new(name: &'static str, range: Range, children: ChildrenNodes) -> rc::Rc<Node> {
+    fn new(sym: Sym, range: Range, children: ChildrenNodes) -> rc::Rc<Node> {
         rc::Rc::new(Node {
-                        rule_name: name,
+                        rule_sym: sym,
                         range: range,
                         children: children,
                     })
@@ -72,9 +108,9 @@ pub struct ParsedNode<V: Clone> {
 }
 
 impl<V: Clone> ParsedNode<V> {
-    fn new(name: &'static str, v: V, r: Range, children: ChildrenNodes) -> ParsedNode<V> {
+    fn new(sym: Sym, v: V, r: Range, children: ChildrenNodes) -> ParsedNode<V> {
         ParsedNode {
-            root_node: Node::new(name, r, children),
+            root_node: Node::new(sym, r, children),
             value: v,
         }
     }
@@ -83,47 +119,10 @@ impl<V: Clone> ParsedNode<V> {
 pub type Stash<V> = Vec<ParsedNode<V>>;
 
 pub struct RuleSet<StashValue: Clone + Send + Sync> {
-    pub rules: Vec<Box<Rule<StashValue>>>,
-}
-
-impl<StashValue: Clone + Send + Sync> Default for RuleSet<StashValue> {
-    fn default() -> RuleSet<StashValue> {
-        RuleSet { rules: vec!() }
-    }
+    rules: Vec<Box<Rule<StashValue>>>,
 }
 
 impl<StashValue: Clone + Send + Sync> RuleSet<StashValue> {
-    pub fn rule_1<PA, V, F>(&mut self, name: &'static str, patterns: PA, production: F)
-        where V: Clone + Send + Sync + 'static,
-              StashValue: From<V> + Clone + Send + Sync + 'static,
-              F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + Send + Sync + 'static,
-              PA: Pattern<StashValue> + 'static,
-    {
-        let rule1: Box<Rule<StashValue>> = Box::new(Rule1::new(name, patterns, production));
-        self.rules.push(rule1)
-    }
-
-    pub fn rule_2<PA, PB, V, F>(&mut self, name: &'static str, pa: PA, pb: PB, production: F)
-        where V: Clone + Send + Sync + 'static,
-              StashValue: From<V> + Clone + Send + Sync + 'static,
-              F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V> + Send + Sync + 'static,
-              PA: Pattern<StashValue> + 'static,
-              PB: Pattern<StashValue> + 'static
-    {
-        self.rules.push(Box::new(Rule2::new(name, (pa, pb), production)))
-    }
-
-    pub fn rule_3<PA, PB, PC, V, F>(&mut self, name: &'static str, pa: PA, pb: PB, pc:PC, production: F)
-        where V: Clone + Send + Sync + 'static,
-              StashValue: From<V> + Clone + Send + Sync + 'static,
-              F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>, &RuleProductionArg<'a, PC::M>) -> RuleResult<V> + Send + Sync + 'static,
-              PA: Pattern<StashValue> + 'static,
-              PB: Pattern<StashValue> + 'static,
-              PC: Pattern<StashValue> + 'static,
-    {
-        self.rules.push(Box::new(Rule3::new(name, (pa, pb, pc), production)))
-    }
-
     fn apply_once(&self, stash: &mut Stash<StashValue>, sentence: &str) -> CoreResult<()> {
         let mut produced_nodes = vec![];
         for rule in &self.rules {
