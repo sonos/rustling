@@ -3,6 +3,8 @@ extern crate error_chain;
 pub extern crate regex;
 extern crate smallvec;
 extern crate string_interner;
+#[macro_use]
+extern crate serde_derive;
 
 use string_interner::StringInterner;
 
@@ -54,7 +56,7 @@ impl<S, T> AttemptTo<T> for S
 
 pub type ChildrenNodes = SmallVec<[rc::Rc<Node>; 2]>;
 
-#[derive(Copy,Ord,Eq,Clone,PartialEq,PartialOrd,Debug,Hash)]
+#[derive(Copy,Ord,Eq,Clone,PartialEq,PartialOrd,Debug,Hash,Serialize,Deserialize)]
 pub struct Sym(usize);
 impl string_interner::NonNegative for Sym {}
 impl From<usize> for Sym {

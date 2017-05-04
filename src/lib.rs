@@ -3,6 +3,8 @@ extern crate error_chain;
 extern crate fnv;
 extern crate rustling_core;
 extern crate rustling_ml;
+#[macro_use]
+extern crate serde_derive;
 
 use std::cmp::{PartialOrd, Ordering};
 
@@ -42,11 +44,11 @@ pub mod errors {
     }
 }
 
-#[derive(Debug, Hash, Clone, Eq, PartialEq)]
+#[derive(Debug, Hash, Clone, Eq, PartialEq,Serialize,Deserialize)]
 pub struct RuleId(pub Sym);
 impl ClassifierId for RuleId {}
 
-#[derive(Debug, Hash, Clone, Eq, PartialEq)]
+#[derive(Debug, Hash, Clone, Eq, PartialEq,Serialize,Deserialize)]
 pub struct Truth(pub bool);
 impl ClassId for Truth {}
 

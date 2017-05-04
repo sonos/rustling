@@ -8,3 +8,5 @@ regex = "0.2"
 smallvec = "0.3"
 error-chain = { version="0.10", default-features=false }
 string-interner = "0.3"
+serde = "1.0"
+serde_derive = "1.0"

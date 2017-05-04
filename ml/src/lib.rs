@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate error_chain;
 extern crate fnv;
+#[macro_use]
+extern crate serde_derive;
 
 use std::hash;
 use std::fmt::Debug;
@@ -28,17 +30,17 @@ pub struct Input<Id: ClassifierId, Feat: Feature> {
     pub children: Vec<Input<Id, Feat>>,
 }
 
-#[derive(PartialEq,Debug,Clone)]
+#[derive(PartialEq,Debug,Clone,Serialize,Deserialize)]
 pub struct Model<Id: ClassifierId, Class: ClassId, Feat: Feature> {
     pub classifiers: FnvHashMap<Id, Classifier<Class, Feat>>,
 }
 
-#[derive(PartialEq,Debug,Clone)]
+#[derive(PartialEq,Debug,Clone,Serialize,Deserialize)]
 pub struct Classifier<Id: ClassId, Feat: Feature> {
     pub classes: FnvHashMap<Id, ClassInfo<Feat>>,
 }
 
-#[derive(PartialEq,Debug,Clone)]
+#[derive(PartialEq,Debug,Clone,Serialize,Deserialize)]
 pub struct ClassInfo<Feat: Feature> {
     pub example_count: usize,
     pub unk_probalog: f32,
