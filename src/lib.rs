@@ -7,7 +7,8 @@ extern crate rustling_ml;
 use std::cmp::{PartialOrd, Ordering};
 
 pub use rustling_core::regex;
-pub use rustling_core::{AttemptFrom, AttemptTo, Node, ParsedNode, Range, RuleSet};
+pub use rustling_core::{AttemptFrom, AttemptTo, Sym, Node, ParsedNode, Range, RuleSet,
+                        RuleSetBuilder};
 pub use rustling_core::{RuleError, RuleErrorKind, RuleResult};
 pub use rustling_ml::{ClassId, Classifier, ClassifierId, Feature, Input, Model};
 pub use train::{Check, Example};
@@ -42,7 +43,7 @@ pub mod errors {
 }
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
-pub struct RuleId(pub &'static str);
+pub struct RuleId(pub Sym);
 impl ClassifierId for RuleId {}
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
@@ -156,8 +157,11 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
         self.parse_with(input, |_| Some(0))
     }
 
-    pub fn parse_with_kind_order(&self, input: &str, order:&[V::Kind]) -> RustlingResult<Vec<ParserMatch<V>>> {
-        self.parse_with(input, |it| order.iter().position(|k| *k==it.kind()))
+    pub fn parse_with_kind_order(&self,
+                                 input: &str,
+                                 order: &[V::Kind])
+                                 -> RustlingResult<Vec<ParserMatch<V>>> {
+        self.parse_with(input, |it| order.iter().position(|k| *k == it.kind()))
     }
 
     pub fn parse_with<S: Fn(&V) -> Option<usize>>(&self,
@@ -169,6 +173,10 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
                .filter(|a| a.3)
                .map(|a| a.1)
                .collect())
+    }
+
+    pub fn resolve_sym(&self, sym:&Sym) -> Option<&str> {
+        self.rules.resolve_sym(sym)
     }
 }
 
@@ -196,7 +204,7 @@ mod tests {
 
     use super::*;
 
-    fn cmp(a: &&'static str, b: &&'static str) -> Option<Ordering> {
+    fn cmp(a: &&str, b: &&str) -> Option<Ordering> {
         if a == b {
             Some(Ordering::Equal)
         } else if a.starts_with(b) {
@@ -234,7 +242,7 @@ mod tests {
         assert_eq!(maximal_elements(values, cmp), vec!["baaar", "foo", "aaa"])
     }
 
-    #[derive(Copy,Clone,Debug,PartialEq)]
+    #[derive(Copy,Clone,Debug,PartialEq,Default)]
     struct Int(usize);
 
     impl AttemptFrom<Int> for Int {
@@ -243,45 +251,19 @@ mod tests {
         }
     }
 
-    macro_rules! reg {
-        ($typ:ty, $pattern:expr) => ( $crate::core::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $pattern) )
-    }
-
-    /*
-    #[test]
-    fn test_rule_set_application_once() {
-        let rule = rule! {
-            "integer (numeric)",
-            (reg!(usize, r#"(\d{1,18})"#)),
-            |text_match| Ok(text_match.group(0).parse::<usize>()?)
-        };
-        let rule_set = RuleSet(vec![rule]);
-        let mut stash = vec![];
-        rule_set.apply_once(&mut stash, "foobar: 42").unwrap();
-        assert_eq!(1, stash.len());
-        assert_eq!(42, stash[0].value);
-    }
-    */
-
     fn rules() -> RuleSet<Int> {
-        let rule = rule! {
-            "integer (numeric)",
-            (reg!(Int, r#"(\d{1,18})"#)),
-            |text_match| Ok(Int(text_match.group(0).parse::<usize>()?))
-        };
-        let rule_thousand = rule! {
-            "integer (thousand)",
-            (reg!(Int, "thousands?")),
-            |_| Ok(Int(1000))
-        };
-        let rule_compo = rule! {
-            "number thousands",
-            (   dim!(Int, vec!(Box::new(|a:&Int| a.0 > 1 && a.0 < 99))),
-                dim!(Int, vec!(Box::new(|a:&Int| a.0 == 1000)))),
-            |a,_| Ok(Int(a.value().0*1000))
-        };
-        let rule_set = RuleSet(vec![rule, rule_compo, rule_thousand]);
-        rule_set
+        let b = RuleSetBuilder::default();
+        b.rule_1("integer (numeric)",
+                 b.reg(r#"(\d{1,18})"#).unwrap(),
+                 |text_match| Ok(Int(text_match.group(0).parse::<usize>()?)));
+        b.rule_1("integer (thousand)",
+                 b.reg("thousands?").unwrap(),
+                 |_| Ok(Int(1000)));
+        b.rule_2("number thousands",
+                 dim!(Int, vec![Box::new(|a: &Int| a.0 > 1 && a.0 < 99)]),
+                 dim!(Int, vec![Box::new(|a: &Int| a.0 == 1000)]),
+                 |a, _| Ok(Int(a.value().0 * 1000)));
+        b.build()
     }
 
     #[test]
@@ -295,20 +277,22 @@ mod tests {
 
     #[test]
     fn test_integer_numeric_infix_rule() {
-        let rule_int =
-            rule! { "int", (reg!(Int, "\\d+")), |a| Ok(Int(usize::from_str(&*a.group(0))?)) };
-        let rule_add = rule! {
-            "add",
-            (dim!(Int), reg!(Int, "\\+"), dim!(Int)),
-            |a,_,b| Ok(Int(a.value().0+b.value().0))
-        };
-        let rule_mul = rule! {
-            "mul",
-            (dim!(Int), reg!(Int, "\\*"), dim!(Int)),
-            |a,_,b| Ok(Int(a.value().0*b.value().0))
-        };
-        let rule_set = RuleSet(vec![rule_int, rule_add, rule_mul]);
-        let results = rule_set.apply_all("foo: 12 + 42, 12* 42").unwrap();
+        let b = RuleSetBuilder::default();
+        b.rule_1("int",
+                 b.reg("\\d+").unwrap(),
+                 |a| Ok(Int(usize::from_str(&*a.group(0))?)));
+        b.rule_3("add",
+                 dim!(Int),
+                 b.reg("\\+").unwrap(),
+                 dim!(Int),
+                 |a, _, b| Ok(Int(a.value().0 + b.value().0)));
+        b.rule_3("mul",
+                 dim!(Int),
+                 b.reg("\\*").unwrap(),
+                 dim!(Int),
+                 |a, _, b| Ok(Int(a.value().0 * b.value().0)));
+        let rs = b.build();
+        let results = rs.apply_all("foo: 12 + 42, 12* 42").unwrap();
         let values: Vec<_> = results.iter().map(|pn| pn.value).collect();
         assert_eq!(vec![Int(12), Int(42), Int(12), Int(42), Int(54), Int(504)],
                    values);
@@ -323,14 +307,19 @@ mod tests {
 
     #[test]
     fn test_with_enum_value() {
-        let int = rule! { "int", (reg!(MyValue, "\\d+")),
-                |a| Ok(usize::from_str(&*a.group(0))?) };
-        let fp = rule! { "fp", (reg!(MyValue, "\\d+.\\d+")),
-                |a| Ok(f32::from_str(&*a.group(0))?) };
-        let pow = rule! { "pow",
-            (dim!(f32), reg!(MyValue, "\\^"), dim!(usize)),
-           |a,_,b| Ok(a.value().powi(*b.value() as i32)) };
-        let rule_set = RuleSet(vec![int, fp, pow]);
+        let b = RuleSetBuilder::default();
+        b.rule_1("int",
+                 b.reg("\\d+").unwrap(),
+                 |a| Ok(usize::from_str(&*a.group(0))?));
+        b.rule_1("fp",
+                 b.reg("\\d+.\\d+").unwrap(),
+                 |a| Ok(f32::from_str(&*a.group(0))?));
+        b.rule_3("pow",
+                 dim!(f32),
+                 b.reg("\\^").unwrap(),
+                 dim!(usize),
+                 |a, _, b| Ok(a.value().powi(*b.value() as i32)));
+        let rule_set = b.build();
         let results = rule_set.apply_all("foo: 1.5^2").unwrap();
         let values: Vec<_> = results.into_iter().map(|pn| pn.value).collect();
         assert_eq!(vec![MyValue::UI(1),

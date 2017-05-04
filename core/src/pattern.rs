@@ -1,10 +1,10 @@
-use std::cmp::{ PartialOrd, Ordering };
+use std::cmp::{PartialOrd, Ordering};
 use std::rc;
 
 use smallvec::SmallVec;
 
 use errors::*;
-use {AttemptFrom, Node, ParsedNode, Stash};
+use {AttemptFrom, Sym, Node, ParsedNode, Stash};
 
 /// Represent a semi-inclusive range of position, in bytes, in the matched
 /// sentence.
@@ -18,7 +18,6 @@ impl Range {
 }
 
 impl PartialOrd for Range {
-
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self == other {
             Some(Ordering::Equal)
@@ -51,13 +50,15 @@ impl<V: Clone> Match for ParsedNode<V> {
 pub struct Text {
     pub groups: SmallVec<[Range; 4]>,
     range: Range,
-    pattern_name: &'static str
+    pattern_sym: Sym,
 }
 
 impl Text {
-    pub fn new(groups: SmallVec<[Range; 4]>, range: Range, pattern_name: &'static str) -> Text {
+    pub fn new(groups: SmallVec<[Range; 4]>, range: Range, pattern_sym: Sym) -> Text {
         Text {
-            groups: groups, range: range, pattern_name: pattern_name
+            groups: groups,
+            range: range,
+            pattern_sym: pattern_sym,
         }
     }
 }
@@ -69,49 +70,55 @@ impl Match for Text {
 
     fn to_node(&self) -> rc::Rc<Node> {
         rc::Rc::new(Node {
-            rule_name: self.pattern_name,
-            range: self.range(),
-            children: SmallVec::new(),
-        })
+                        rule_sym: self.pattern_sym,
+                        range: self.range(),
+                        children: SmallVec::new(),
+                    })
     }
 }
 
 pub type PredicateMatches<M> = Vec<M>;
 
-pub trait Pattern<StashValue: Clone + Send + Sync> : Send+Sync {
+pub trait Pattern<StashValue: Clone + Send + Sync>: Send + Sync {
     type M: Match;
-    fn predicate(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<PredicateMatches<Self::M>>;
+    fn predicate(&self,
+                 stash: &Stash<StashValue>,
+                 sentence: &str)
+                 -> CoreResult<PredicateMatches<Self::M>>;
 }
 
 
 pub struct TextPattern<StashValue: Clone + Send + Sync>(::regex::Regex,
-                                          &'static str,
-                                          ::std::marker::PhantomData<StashValue>);
+                                                        Sym,
+                                                        ::std::marker::PhantomData<StashValue>);
 
 impl<StashValue: Clone + Send + Sync> TextPattern<StashValue> {
-    pub fn new(regex: ::regex::Regex, name: &'static str) -> TextPattern<StashValue> {
-        TextPattern(regex, name, ::std::marker::PhantomData)
+    pub fn new(regex: ::regex::Regex, sym: Sym) -> TextPattern<StashValue> {
+        TextPattern(regex, sym, ::std::marker::PhantomData)
     }
 }
 
 impl<StashValue: Clone + Send + Sync> Pattern<StashValue> for TextPattern<StashValue> {
-    type M=Text;
-    fn predicate(&self, _stash: &Stash<StashValue>, sentence: &str) -> CoreResult<PredicateMatches<Self::M>> {
+    type M = Text;
+    fn predicate(&self,
+                 _stash: &Stash<StashValue>,
+                 sentence: &str)
+                 -> CoreResult<PredicateMatches<Self::M>> {
         self.0
             .captures_iter(&sentence)
             .map(|cap| {
                 let full = cap.get(0)
                     .ok_or_else(|| {
-                        format!("No capture for regexp {} in rule {} for sentence: {}",
-                                self.0,
-                                self.1,
-                                sentence)
-                    })?;
+                                    format!("No capture for regexp {} in rule {:?} for sentence: {}",
+                                            self.0,
+                                            self.1,
+                                            sentence)
+                                })?;
                 let full_range = Range(full.start(), full.end());
                 let mut groups = SmallVec::new();
                 for (ix, group) in cap.iter().enumerate() {
                     let group = group.ok_or_else(|| {
-                            format!("No capture for regexp {} in rule {}, group number {} in \
+                            format!("No capture for regexp {} in rule {:?}, group number {} in \
                                      capture: {}",
                                     self.0,
                                     self.1,
@@ -121,38 +128,55 @@ impl<StashValue: Clone + Send + Sync> Pattern<StashValue> for TextPattern<StashV
                     let range = Range(group.start(), group.end());
                     groups.push(range);
                 }
-                Ok(Text { groups: groups, range: full_range, pattern_name: self.1 })
+                Ok(Text {
+                       groups: groups,
+                       range: full_range,
+                       pattern_sym: self.1,
+                   })
             })
             .collect()
     }
 }
 
-pub struct TextNegLHPattern<StashValue: Clone  + Send + Sync> {
+pub struct TextNegLHPattern<StashValue: Clone + Send + Sync> {
     pattern: TextPattern<StashValue>,
     neg_look_ahead: ::regex::Regex,
-    pattern_name: &'static str,
+    pattern_sym: Sym,
 }
 
 impl<StashValue: Clone + Send + Sync> TextNegLHPattern<StashValue> {
-    pub fn new(pattern: TextPattern<StashValue>, neg_look_ahead: ::regex::Regex, pattern_name: &'static str) -> TextNegLHPattern<StashValue> {
+    pub fn new(pattern: TextPattern<StashValue>,
+               neg_look_ahead: ::regex::Regex,
+               pattern_sym: Sym)
+               -> TextNegLHPattern<StashValue> {
         TextNegLHPattern {
             pattern: pattern,
             neg_look_ahead: neg_look_ahead,
-            pattern_name: pattern_name,
+            pattern_sym: pattern_sym,
         }
     }
 }
 
 impl<StashValue: Clone + Send + Sync> Pattern<StashValue> for TextNegLHPattern<StashValue> {
-    type M=Text;
-    fn predicate(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<PredicateMatches<Text>> {
-        Ok(self.pattern.predicate(stash, sentence)?.into_iter().filter(|t| {
-            match self.neg_look_ahead.find(&sentence[t.range().1..]) {
-                None => true,
-                Some(mat) => mat.start() == 0
-            }
-        }).map(|t| Text { pattern_name: self.pattern_name, ..t })
-        .collect())
+    type M = Text;
+    fn predicate(&self,
+                 stash: &Stash<StashValue>,
+                 sentence: &str)
+                 -> CoreResult<PredicateMatches<Text>> {
+        Ok(self.pattern
+               .predicate(stash, sentence)?
+               .into_iter()
+               .filter(|t| match self.neg_look_ahead.find(&sentence[t.range().1..]) {
+                           None => true,
+                           Some(mat) => mat.start() == 0,
+                       })
+               .map(|t| {
+                        Text {
+                            pattern_sym: self.pattern_sym,
+                            ..t
+                        }
+                    })
+               .collect())
     }
 }
 
@@ -189,25 +213,25 @@ impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
     where StashValue: Clone + Send + Sync,
           V: AttemptFrom<StashValue> + Clone + Send + Sync
 {
-    type M=ParsedNode<V>;
+    type M = ParsedNode<V>;
     fn predicate(&self,
                  stash: &Stash<StashValue>,
                  _sentence: &str)
                  -> CoreResult<PredicateMatches<ParsedNode<V>>> {
-        Ok(stash.iter()
-            .filter_map(|it| if let Some(v) = V::attempt_from(it.value.clone()) {
-                if self.predicates.iter().all(|predicate| (predicate)(&v)) {
-                    Some(ParsedNode::new(it.root_node.rule_name,
-                                         v,
-                                         it.range(),
-                                         it.root_node.children.clone()))
-                } else {
-                    None
-                }
-            } else {
-                None
-            })
-            .collect())
+        Ok(stash
+               .iter()
+               .filter_map(|it| if let Some(v) = V::attempt_from(it.value.clone()) {
+                               if self.predicates.iter().all(|predicate| (predicate)(&v)) {
+                                   Some(ParsedNode::new(it.root_node.rule_sym,
+                                                        v,
+                                                        it.range(),
+                                                        it.root_node.children.clone()))
+                               } else {
+                                   None
+                               }
+                           } else {
+                               None
+                           })
+               .collect())
     }
 }
-

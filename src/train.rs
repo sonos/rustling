@@ -3,7 +3,8 @@ use std::fmt::Debug;
 use fnv::FnvHashMap;
 use fnv::FnvHashSet;
 
-use {Classifier, Feature, FeatureExtractor, Model, Node, ParsedNode, RuleId, RuleSet, Truth, Value};
+use {Classifier, Feature, FeatureExtractor, Model, Node, ParsedNode, RuleId, RuleSet, Truth,
+     Value};
 use RustlingResult;
 
 #[derive(Debug)]
@@ -30,7 +31,8 @@ pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
      examples: Vec<Example<V>>,
      feature_extractor: E)
      -> RustlingResult<Model<RuleId, Truth, F>> {
-    let mut classified_ex: FnvHashMap<RuleId, Vec<(FnvHashMap<F, usize>, Truth)>> = FnvHashMap::default();
+    let mut classified_ex: FnvHashMap<RuleId, Vec<(FnvHashMap<F, usize>, Truth)>> =
+        FnvHashMap::default();
     for ex in examples.iter() {
         let stash = rules.apply_all(&ex.text.to_lowercase()).unwrap();
 
@@ -77,7 +79,7 @@ pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
                     *counted_features.entry(f).or_insert(0) += 1;
                 }
                 classified_ex
-                    .entry(::RuleId(n.rule_name))
+                    .entry(::RuleId(n.rule_sym))
                     .or_insert(vec![])
                     .push((counted_features, ::Truth(truth)));
             }
