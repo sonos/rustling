@@ -85,6 +85,6 @@ impl<StashValue: Clone + Send + Sync> RuleSetBuilder<StashValue> {
     }
 
     pub fn build(self) -> RuleSet<StashValue> {
-        RuleSet { rules: self.rules.into_inner() }
+        RuleSet { rules: self.rules.into_inner(), symbols: self.symbols.into_inner() }
     }
 }

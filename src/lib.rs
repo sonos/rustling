@@ -174,6 +174,10 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
                .map(|a| a.1)
                .collect())
     }
+
+    pub fn resolve_sym(&self, sym:&Sym) -> Option<&str> {
+        self.rules.resolve_sym(sym)
+    }
 }
 
 // This is maximal elements in the POSet (Partial Ordered Set) sense: all

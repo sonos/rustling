@@ -119,6 +119,7 @@ impl<V: Clone> ParsedNode<V> {
 pub type Stash<V> = Vec<ParsedNode<V>>;
 
 pub struct RuleSet<StashValue: Clone + Send + Sync> {
+    symbols: SymbolTable,
     rules: Vec<Box<Rule<StashValue>>>,
 }
 
@@ -145,5 +146,9 @@ impl<StashValue: Clone + Send + Sync> RuleSet<StashValue> {
             previous_stash_size = stash.len();
         }
         Ok(stash)
+    }
+
+    pub fn resolve_sym(&self, sym:&Sym) -> Option<&str> {
+        self.symbols.0.resolve(*sym)
     }
 }
