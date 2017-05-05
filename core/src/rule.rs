@@ -475,6 +475,146 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule4<PA, PB, PC, PD, V, StashValue, F>
     }
 }
 
+pub struct Rule5<PA, PB, PC, PD, PE, V, StashValue, F>
+    where V: Clone,
+          StashValue: From<V> + Clone,
+          F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
+                        &RuleProductionArg<'a, PB::M>,
+                        &RuleProductionArg<'a, PC::M>,
+                        &RuleProductionArg<'a, PD::M>,
+                        &RuleProductionArg<'a, PE::M>)
+                        -> RuleResult<V> + Send + Sync,
+          PA: Pattern<StashValue>,
+          PB: Pattern<StashValue>,
+          PC: Pattern<StashValue>,
+          PD: Pattern<StashValue>,
+          PE: Pattern<StashValue>,
+{
+    sym: Sym,
+    pattern: (PA, PB, PC, PD, PE),
+    production: F,
+    _phantom: SendSyncPhantomData<(V, StashValue)>,
+}
+
+impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule<StashValue> for Rule5<PA, PB, PC, PD, PE, V, StashValue, F>
+    where V: Clone,
+          StashValue: From<V> + Clone,
+          F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
+                        &RuleProductionArg<'a, PB::M>,
+                        &RuleProductionArg<'a, PC::M>,
+                        &RuleProductionArg<'a, PD::M>,
+                        &RuleProductionArg<'a, PE::M>)
+                        -> RuleResult<V> + Send + Sync,
+          PA: Pattern<StashValue>,
+          PB: Pattern<StashValue>,
+          PC: Pattern<StashValue>,
+          PD: Pattern<StashValue>,
+          PE: Pattern<StashValue>,
+{
+    fn apply(&self,
+             stash: &Stash<StashValue>,
+             sentence: &str)
+             -> CoreResult<ParsedNodes<StashValue>> {
+        let matches = self.matches(&stash, sentence)?;
+        matches
+            .iter()
+            .filter_map(|sub| {
+                let nodes = svec!(sub.0.to_node(), sub.1.to_node(), sub.2.to_node(), sub.3.to_node(), sub.4.to_node());
+                if stash
+                       .iter()
+                       .all(|old_node| {
+                                old_node.root_node.children != nodes ||
+                                old_node.root_node.rule_sym != self.sym
+                            }) {
+                    let range = Range(sub.0.range().0, sub.4.range().1);
+                    match (self.production)(&RuleProductionArg::new(sentence, &sub.0),
+                                            &RuleProductionArg::new(sentence, &sub.1),
+                                            &RuleProductionArg::new(sentence, &sub.2),
+                                            &RuleProductionArg::new(sentence, &sub.3),
+                                            &RuleProductionArg::new(sentence, &sub.4)) {
+                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), range, nodes))),
+                        Err(e) => Some(Err(make_production_error(e))),
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+}
+
+impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule5<PA, PB, PC, PD, PE, V, StashValue, F>
+    where V: Clone,
+          StashValue: From<V> + Clone,
+          F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
+                        &RuleProductionArg<'a, PB::M>,
+                        &RuleProductionArg<'a, PC::M>,
+                        &RuleProductionArg<'a, PD::M>,
+                        &RuleProductionArg<'a, PE::M>)
+                        -> RuleResult<V> + Send + Sync,
+          PA: Pattern<StashValue>,
+          PB: Pattern<StashValue>,
+          PC: Pattern<StashValue>,
+          PD: Pattern<StashValue>,
+          PE: Pattern<StashValue>,
+{
+    pub fn new(sym: Sym, pat: (PA, PB, PC, PD, PE), prod: F) -> Rule5<PA, PB, PC, PD, PE, V, StashValue, F> {
+        Rule5 {
+            sym: sym,
+            pattern: pat,
+            production: prod,
+            _phantom: SendSyncPhantomData::new(),
+        }
+    }
+
+    fn matches(&self,
+               stash: &Stash<StashValue>,
+               sentence: &str)
+               -> CoreResult<PredicateMatches<(PA::M, PB::M, PC::M, PD::M, PE::M)>> {
+        let mut result = PredicateMatches::default();
+        let matches_0 = self.pattern.0.predicate(stash, sentence)?;
+        if matches_0.is_empty() {
+            return Ok(result);
+        }
+        let matches_1 = self.pattern.1.predicate(stash, sentence)?;
+        if matches_1.is_empty() {
+            return Ok(result);
+        }
+        let matches_2 = self.pattern.2.predicate(stash, sentence)?;
+        if matches_2.is_empty() {
+            return Ok(result);
+        }
+        let matches_3 = self.pattern.3.predicate(stash, sentence)?;
+        if matches_3.is_empty() {
+            return Ok(result);
+        }
+        let matches_4 = self.pattern.4.predicate(stash, sentence)?;
+        if matches_4.is_empty() {
+            return Ok(result);
+        }
+        for m0 in matches_0.iter() {
+            for m1 in matches_1.iter() {
+                if adjacent(m0, m1, sentence) {
+                    for m2 in matches_2.iter() {
+                        if adjacent(m1, m2, sentence) {
+                            for m3 in matches_3.iter() {
+                                if adjacent(m2, m3, sentence) {
+                                    for m4 in matches_4.iter() {
+                                        if adjacent(m3, m4, sentence) {
+                                            result.push((m0.clone(), m1.clone(), m2.clone(), m3.clone(), m4.clone()))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(result)
+    }
+}
+
 
 #[cfg(test)]
 #[allow(unused_mut)]
