@@ -80,7 +80,7 @@ pub struct Rule1<PA, V, StashValue, F>
     sym: Sym,
     pattern: PA,
     production: F,
-    _phantom: ::std::marker::PhantomData<(V, StashValue)>,
+    _phantom: SendSyncPhantomData<(V, StashValue)>,
 }
 
 impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
@@ -132,7 +132,7 @@ impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
             sym: sym,
             pattern: pat,
             production: prod,
-            _phantom: ::std::marker::PhantomData,
+            _phantom: SendSyncPhantomData::new(),
         }
     }
 
@@ -161,7 +161,7 @@ pub struct Rule2<PA, PB, V, StashValue, F>
     sym: Sym,
     pattern: (PA, PB),
     production: F,
-    _phantom: ::std::marker::PhantomData<(V,  StashValue)>,
+    _phantom: SendSyncPhantomData<(V,  StashValue)>,
 }
 
 impl<PA, PB, V, StashValue, F> Rule<StashValue>
@@ -218,7 +218,7 @@ impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
             sym: sym,
             pattern: pat,
             production: prod,
-            _phantom: ::std::marker::PhantomData,
+            _phantom: SendSyncPhantomData::new(),
         }
     }
 
@@ -254,7 +254,7 @@ pub struct Rule3<PA, PB, PC, V, StashValue, F>
     sym: Sym,
     pattern: (PA, PB, PC),
     production: F,
-    _phantom: ::std::marker::PhantomData<(V, StashValue)>,
+    _phantom: SendSyncPhantomData<(V, StashValue)>,
 }
 
 impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, StashValue, F>
@@ -314,7 +314,7 @@ impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
             sym: sym,
             pattern: pat,
             production: prod,
-            _phantom: ::std::marker::PhantomData,
+            _phantom: SendSyncPhantomData::new(),
         }
     }
 

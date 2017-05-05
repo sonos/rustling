@@ -4,7 +4,7 @@ use std::rc;
 use smallvec::SmallVec;
 
 use errors::*;
-use {AttemptFrom, Sym, Node, ParsedNode, Stash};
+use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash};
 
 /// Represent a semi-inclusive range of position, in bytes, in the matched
 /// sentence.
@@ -90,11 +90,11 @@ pub trait Pattern<StashValue: Clone>: Send + Sync {
 
 pub struct TextPattern<StashValue: Clone>(::regex::Regex,
                                                         Sym,
-                                                        ::std::marker::PhantomData<StashValue>);
+                                                        SendSyncPhantomData<StashValue>);
 
 impl<StashValue: Clone> TextPattern<StashValue> {
     pub fn new(regex: ::regex::Regex, sym: Sym) -> TextPattern<StashValue> {
-        TextPattern(regex, sym, ::std::marker::PhantomData)
+        TextPattern(regex, sym, SendSyncPhantomData::new())
     }
 }
 
@@ -186,14 +186,14 @@ pub struct FilterNodePattern<V>
     where V: Clone
 {
     predicates: Vec<Box<Fn(&V) -> bool + Send + Sync>>,
-    _phantom: ::std::marker::PhantomData<V>,
+    _phantom: SendSyncPhantomData<V>,
 }
 
 impl<V: Clone> AnyNodePattern<V> {
     pub fn new() -> AnyNodePattern<V> {
         FilterNodePattern {
             predicates: vec![],
-            _phantom: ::std::marker::PhantomData,
+            _phantom: SendSyncPhantomData::new()
         }
     }
 }
@@ -204,7 +204,7 @@ impl<V> FilterNodePattern<V>
     pub fn filter(predicates: Vec<Box<Fn(&V) -> bool + Sync + Send>>) -> FilterNodePattern<V> {
         FilterNodePattern {
             predicates: predicates,
-            _phantom: ::std::marker::PhantomData,
+            _phantom: SendSyncPhantomData::new()
         }
     }
 }

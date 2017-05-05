@@ -16,6 +16,8 @@ pub use rustling_ml::{ClassId, Classifier, ClassifierId, Feature, Input, Model};
 pub use train::{Check, Example};
 pub use errors::*;
 
+use rustling_core::SendSyncPhantomData;
+
 #[macro_use]
 pub mod macros;
 pub mod train;
@@ -52,7 +54,7 @@ impl ClassifierId for RuleId {}
 pub struct Truth(pub bool);
 impl ClassId for Truth {}
 
-pub trait Value: Clone + PartialEq + ::std::fmt::Debug + Send + Sync {
+pub trait Value: Clone {
     type Kind: PartialEq;
     fn kind(&self) -> Self::Kind;
 }
@@ -69,10 +71,10 @@ pub struct ParserMatch<V: Value> {
     pub probalog: f32,
 }
 
-fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
-                b: &(ParsedNode<V>, ParserMatch<V>, Option<usize>))
+fn match_cmp<V,FV>(a: &(ParsedNode<V>, ParserMatch<FV>, Option<usize>),
+                b: &(ParsedNode<V>, ParserMatch<FV>, Option<usize>))
                 -> Option<Ordering>
-    where V: Value
+    where V: Value, FV: Value
 {
     if a.1.value.kind() == b.1.value.kind() {
         if a.1.range == b.1.range {
@@ -97,14 +99,16 @@ pub trait FeatureExtractor<V: Value, Feat: Feature> {
     fn for_node(&self, node: &Node) -> Input<RuleId, Feat>;
 }
 
-pub struct Parser<V: Value, Feat: Feature, Extractor: FeatureExtractor<V, Feat>> {
+pub struct Parser<V: Value, FV:Value + From<V>, Feat: Feature, Extractor: FeatureExtractor<V, Feat>> {
     rules: RuleSet<V>,
     model: Model<RuleId, Truth, Feat>,
     extractor: Extractor,
+    _phantom: SendSyncPhantomData<FV>,
 }
 
-impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
+impl<V, FV, Feat, Extractor> Parser<V, FV, Feat, Extractor>
     where V: Value,
+          FV: Value+From<V>,
           RuleId: ClassifierId,
           Feat: Feature,
           Extractor: FeatureExtractor<V, Feat>
@@ -112,15 +116,16 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
     pub fn new(rules: RuleSet<V>,
                model: Model<RuleId, Truth, Feat>,
                extractor: Extractor)
-               -> Parser<V, Feat, Extractor> {
+               -> Parser<V, FV, Feat, Extractor> {
         Parser {
             rules: rules,
             model: model,
             extractor: extractor,
+            _phantom: SendSyncPhantomData::new(),
         }
     }
 
-    fn raw_candidates(&self, input: &str) -> RustlingResult<Vec<(ParsedNode<V>, ParserMatch<V>)>> {
+    fn raw_candidates(&self, input: &str) -> RustlingResult<Vec<(ParsedNode<V>, ParserMatch<FV>)>> {
         self.rules
             .apply_all(input)?
             .into_iter()
@@ -129,7 +134,7 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
                 let probalog = self.model.classify(&features, &Truth(true))?;
                 let pm = ParserMatch {
                     range: p.root_node.range,
-                    value: p.value.clone(),
+                    value: p.value.clone().into(),
                     probalog: probalog,
                 };
                 Ok((p, pm))
@@ -141,11 +146,11 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
         (&self,
          input: &str,
          dimension_prio: S)
-         -> RustlingResult<Vec<(ParsedNode<V>, ParserMatch<V>, Option<usize>, bool)>> {
+         -> RustlingResult<Vec<(ParsedNode<V>, ParserMatch<FV>, Option<usize>, bool)>> {
         let candidates = self.raw_candidates(input)?
             .into_iter()
             .map(|(pn, pm)| {
-                     let p = dimension_prio(&pm.value);
+                     let p = dimension_prio(&pn.value);
                      (pn, pm, p)
                  })
             .collect();
@@ -155,21 +160,21 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
                .collect())
     }
 
-    pub fn parse(&self, input: &str) -> RustlingResult<Vec<ParserMatch<V>>> {
+    pub fn parse(&self, input: &str) -> RustlingResult<Vec<ParserMatch<FV>>> {
         self.parse_with(input, |_| Some(0))
     }
 
     pub fn parse_with_kind_order(&self,
                                  input: &str,
                                  order: &[V::Kind])
-                                 -> RustlingResult<Vec<ParserMatch<V>>> {
+                                 -> RustlingResult<Vec<ParserMatch<FV>>> {
         self.parse_with(input, |it| order.iter().position(|k| *k == it.kind()))
     }
 
     pub fn parse_with<S: Fn(&V) -> Option<usize>>(&self,
                                                   input: &str,
                                                   dimension_prio: S)
-                                                  -> RustlingResult<Vec<ParserMatch<V>>> {
+                                                  -> RustlingResult<Vec<ParserMatch<FV>>> {
         Ok(self.candidates(input, dimension_prio)?
                .into_iter()
                .filter(|a| a.3)
@@ -302,6 +307,7 @@ mod tests {
 
     rustling_value! {
         #[doc="an union"]
+        #[derive(Clone,PartialEq,Debug)]
         MyValue MyValueKind
             UI(usize),
             FP(f32),

@@ -154,3 +154,13 @@ impl<StashValue: Clone> RuleSet<StashValue> {
         self.symbols.0.resolve(*sym)
     }
 }
+
+#[derive(Copy,Clone)]
+pub struct SendSyncPhantomData<T>(::std::marker::PhantomData<T>);
+unsafe impl<T> Send for SendSyncPhantomData<T> {}
+unsafe impl<T> Sync for SendSyncPhantomData<T> {}
+impl<T> SendSyncPhantomData<T> {
+    pub fn new() -> SendSyncPhantomData<T> {
+        SendSyncPhantomData(::std::marker::PhantomData)
+    }
+}

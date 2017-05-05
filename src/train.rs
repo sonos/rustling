@@ -46,7 +46,7 @@ pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
 
         // - example sanity check
         if positive_parsed_nodes.is_empty() {
-            Err(format!("example: {:?} matched no rule", ex))?
+            Err(format!("example: {:?} matched no rule", ex.text))?
         }
 
         // - expand parse nodes to nodes, according to the partition

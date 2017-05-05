@@ -1,8 +1,7 @@
 #[macro_export]
 macro_rules! rustling_value {
-    ( #[$doc:meta] $name:ident $kindname:ident $($varname:ident($varty:ty)),*, ) => {
-        #[$doc]
-        #[derive(Debug,Clone,PartialEq)]
+    ( #[$doc:meta] #[$derive:meta] $name:ident $kindname:ident $($varname:ident($varty:ty)),*, ) => {
+        #[$doc] #[$derive]
         pub enum $name {
             $( $varname($varty) ),*
         }

@@ -31,7 +31,7 @@ impl<StashValue: Clone> RuleSetBuilder<StashValue> {
         where S: Into<String> + AsRef<str>,
               V: Clone + 'static,
               StashValue: From<V> + Clone + 'static,
-              F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + 'static,
+              F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + 'static + Send + Sync,
               PA: Pattern<StashValue> + 'static
     {
         let sym = self.sym(sym);
@@ -45,7 +45,7 @@ impl<StashValue: Clone> RuleSetBuilder<StashValue> {
               V: Clone + 'static,
               StashValue: From<V> + Clone + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>)
-                            -> RuleResult<V> + 'static,
+                            -> RuleResult<V> + 'static + Send + Sync,
               PA: Pattern<StashValue> + 'static,
               PB: Pattern<StashValue> + 'static
     {
@@ -62,7 +62,7 @@ impl<StashValue: Clone> RuleSetBuilder<StashValue> {
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                             &RuleProductionArg<'a, PB::M>,
                             &RuleProductionArg<'a, PC::M>)
-                            -> RuleResult<V> + 'static,
+                            -> RuleResult<V> + 'static + Send + Sync,
               PA: Pattern<StashValue> + 'static,
               PB: Pattern<StashValue> + 'static,
               PC: Pattern<StashValue> + 'static
