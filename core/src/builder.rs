@@ -6,12 +6,12 @@ use rule::{Rule, Rule1, Rule2, Rule3, RuleProductionArg};
 
 use rule::rule_errors::*;
 
-pub struct RuleSetBuilder<StashValue: Clone + Send + Sync> {
+pub struct RuleSetBuilder<StashValue: Clone> {
     symbols: cell::RefCell<SymbolTable>,
     rules: cell::RefCell<Vec<Box<Rule<StashValue>>>>,
 }
 
-impl<StashValue: Clone + Send + Sync> Default for RuleSetBuilder<StashValue> {
+impl<StashValue: Clone> Default for RuleSetBuilder<StashValue> {
     fn default() -> RuleSetBuilder<StashValue> {
         RuleSetBuilder {
             symbols: cell::RefCell::new(SymbolTable::default()),
@@ -20,7 +20,7 @@ impl<StashValue: Clone + Send + Sync> Default for RuleSetBuilder<StashValue> {
     }
 }
 
-impl<StashValue: Clone + Send + Sync> RuleSetBuilder<StashValue> {
+impl<StashValue: Clone> RuleSetBuilder<StashValue> {
 
     pub fn sym<S>(&self, val: S) -> Sym
         where S: Into<String> + AsRef<str> {
@@ -29,9 +29,9 @@ impl<StashValue: Clone + Send + Sync> RuleSetBuilder<StashValue> {
 
     pub fn rule_1<S, PA, V, F>(&self, sym: S, pa: PA, production: F)
         where S: Into<String> + AsRef<str>,
-              V: Clone + Send + Sync + 'static,
-              StashValue: From<V> + Clone + Send + Sync + 'static,
-              F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + Send + Sync + 'static,
+              V: Clone + 'static,
+              StashValue: From<V> + Clone + 'static,
+              F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + 'static,
               PA: Pattern<StashValue> + 'static
     {
         let sym = self.sym(sym);
@@ -42,10 +42,10 @@ impl<StashValue: Clone + Send + Sync> RuleSetBuilder<StashValue> {
 
     pub fn rule_2<S, PA, PB, V, F>(&self, sym: S, pa: PA, pb: PB, production: F)
         where S: Into<String> + AsRef<str>,
-              V: Clone + Send + Sync + 'static,
-              StashValue: From<V> + Clone + Send + Sync + 'static,
+              V: Clone + 'static,
+              StashValue: From<V> + Clone + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>)
-                            -> RuleResult<V> + Send + Sync + 'static,
+                            -> RuleResult<V> + 'static,
               PA: Pattern<StashValue> + 'static,
               PB: Pattern<StashValue> + 'static
     {
@@ -57,12 +57,12 @@ impl<StashValue: Clone + Send + Sync> RuleSetBuilder<StashValue> {
 
     pub fn rule_3<S, PA, PB, PC, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, production: F)
         where S: Into<String> + AsRef<str>,
-              V: Clone + Send + Sync + 'static,
-              StashValue: From<V> + Clone + Send + Sync + 'static,
+              V: Clone + 'static,
+              StashValue: From<V> + Clone + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                             &RuleProductionArg<'a, PB::M>,
                             &RuleProductionArg<'a, PC::M>)
-                            -> RuleResult<V> + Send + Sync + 'static,
+                            -> RuleResult<V> + 'static,
               PA: Pattern<StashValue> + 'static,
               PB: Pattern<StashValue> + 'static,
               PC: Pattern<StashValue> + 'static

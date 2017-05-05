@@ -79,7 +79,7 @@ impl Match for Text {
 
 pub type PredicateMatches<M> = Vec<M>;
 
-pub trait Pattern<StashValue: Clone + Send + Sync>: Send + Sync {
+pub trait Pattern<StashValue: Clone>: Send + Sync {
     type M: Match;
     fn predicate(&self,
                  stash: &Stash<StashValue>,
@@ -88,17 +88,17 @@ pub trait Pattern<StashValue: Clone + Send + Sync>: Send + Sync {
 }
 
 
-pub struct TextPattern<StashValue: Clone + Send + Sync>(::regex::Regex,
+pub struct TextPattern<StashValue: Clone>(::regex::Regex,
                                                         Sym,
                                                         ::std::marker::PhantomData<StashValue>);
 
-impl<StashValue: Clone + Send + Sync> TextPattern<StashValue> {
+impl<StashValue: Clone> TextPattern<StashValue> {
     pub fn new(regex: ::regex::Regex, sym: Sym) -> TextPattern<StashValue> {
         TextPattern(regex, sym, ::std::marker::PhantomData)
     }
 }
 
-impl<StashValue: Clone + Send + Sync> Pattern<StashValue> for TextPattern<StashValue> {
+impl<StashValue: Clone> Pattern<StashValue> for TextPattern<StashValue> {
     type M = Text;
     fn predicate(&self,
                  _stash: &Stash<StashValue>,
@@ -138,13 +138,13 @@ impl<StashValue: Clone + Send + Sync> Pattern<StashValue> for TextPattern<StashV
     }
 }
 
-pub struct TextNegLHPattern<StashValue: Clone + Send + Sync> {
+pub struct TextNegLHPattern<StashValue: Clone> {
     pattern: TextPattern<StashValue>,
     neg_look_ahead: ::regex::Regex,
     pattern_sym: Sym,
 }
 
-impl<StashValue: Clone + Send + Sync> TextNegLHPattern<StashValue> {
+impl<StashValue: Clone> TextNegLHPattern<StashValue> {
     pub fn new(pattern: TextPattern<StashValue>,
                neg_look_ahead: ::regex::Regex,
                pattern_sym: Sym)
@@ -157,7 +157,7 @@ impl<StashValue: Clone + Send + Sync> TextNegLHPattern<StashValue> {
     }
 }
 
-impl<StashValue: Clone + Send + Sync> Pattern<StashValue> for TextNegLHPattern<StashValue> {
+impl<StashValue: Clone> Pattern<StashValue> for TextNegLHPattern<StashValue> {
     type M = Text;
     fn predicate(&self,
                  stash: &Stash<StashValue>,
@@ -183,13 +183,13 @@ impl<StashValue: Clone + Send + Sync> Pattern<StashValue> for TextNegLHPattern<S
 pub type AnyNodePattern<V> = FilterNodePattern<V>;
 
 pub struct FilterNodePattern<V>
-    where V: Clone + Send + Sync
+    where V: Clone
 {
     predicates: Vec<Box<Fn(&V) -> bool + Send + Sync>>,
     _phantom: ::std::marker::PhantomData<V>,
 }
 
-impl<V: Clone + Send + Sync> AnyNodePattern<V> {
+impl<V: Clone> AnyNodePattern<V> {
     pub fn new() -> AnyNodePattern<V> {
         FilterNodePattern {
             predicates: vec![],
@@ -199,7 +199,7 @@ impl<V: Clone + Send + Sync> AnyNodePattern<V> {
 }
 
 impl<V> FilterNodePattern<V>
-    where V: Clone + Send + Sync
+    where V: Clone
 {
     pub fn filter(predicates: Vec<Box<Fn(&V) -> bool + Sync + Send>>) -> FilterNodePattern<V> {
         FilterNodePattern {
@@ -210,8 +210,8 @@ impl<V> FilterNodePattern<V>
 }
 
 impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
-    where StashValue: Clone + Send + Sync,
-          V: AttemptFrom<StashValue> + Clone + Send + Sync
+    where StashValue: Clone,
+          V: AttemptFrom<StashValue> + Clone
 {
     type M = ParsedNode<V>;
     fn predicate(&self,

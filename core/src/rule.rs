@@ -64,7 +64,7 @@ impl<'a, V: Clone> RuleProductionArg<'a, ParsedNode<V>> {
 
 type ParsedNodes<StashValue> = SmallVec<[ParsedNode<StashValue>; 1]>;
 
-pub trait Rule<StashValue: Clone + Send + Sync>: Send + Sync {
+pub trait Rule<StashValue: Clone>: Send + Sync {
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
@@ -73,7 +73,7 @@ pub trait Rule<StashValue: Clone + Send + Sync>: Send + Sync {
 
 pub struct Rule1<PA, V, StashValue, F>
     where V: Clone,
-          StashValue: From<V> + Clone + Send + Sync,
+          StashValue: From<V> + Clone,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V>,
           PA: Pattern<StashValue>
 {
@@ -84,8 +84,8 @@ pub struct Rule1<PA, V, StashValue, F>
 }
 
 impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
-    where V: Clone + Send + Sync,
-          StashValue: From<V> + Clone + Send + Sync,
+    where V: Clone,
+          StashValue: From<V> + Clone,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + Send + Sync,
           PA: Pattern<StashValue>
 {
@@ -123,7 +123,7 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
 
 impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
     where V: Clone,
-          StashValue: From<V> + Clone + Send + Sync,
+          StashValue: From<V> + Clone,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V>,
           PA: Pattern<StashValue>
 {
@@ -153,7 +153,7 @@ fn adjacent<A: Match, B: Match>(a: &A, b: &B, sentence: &str) -> bool {
 
 pub struct Rule2<PA, PB, V, StashValue, F>
     where V: Clone,
-          StashValue: From<V> + Clone + Send + Sync,
+          StashValue: From<V> + Clone,
           F:for<'a>  Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V>,
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
@@ -166,8 +166,8 @@ pub struct Rule2<PA, PB, V, StashValue, F>
 
 impl<PA, PB, V, StashValue, F> Rule<StashValue>
     for Rule2<PA, PB, V, StashValue, F>
-    where V: Clone + Send + Sync,
-          StashValue: From<V> + Clone + Send + Sync,
+    where V: Clone,
+          StashValue: From<V> + Clone,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V> + Send + Sync,
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
@@ -204,8 +204,8 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
 }
 
 impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
-    where V: Clone + Send + Sync,
-          StashValue: From<V> + Clone + Send + Sync,
+    where V: Clone,
+          StashValue: From<V> + Clone,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V> + Send + Sync,
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
@@ -241,8 +241,8 @@ impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
 }
 
 pub struct Rule3<PA, PB, PC, V, StashValue, F>
-    where V: Clone + Send + Sync,
-          StashValue: From<V> + Clone + Send + Sync,
+    where V: Clone,
+          StashValue: From<V> + Clone,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>)
@@ -258,8 +258,8 @@ pub struct Rule3<PA, PB, PC, V, StashValue, F>
 }
 
 impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, StashValue, F>
-    where V: Clone + Send + Sync,
-          StashValue: From<V> + Clone + Send + Sync,
+    where V: Clone,
+          StashValue: From<V> + Clone,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>)
@@ -299,8 +299,8 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, Sta
 }
 
 impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
-    where V: Clone + Send + Sync,
-          StashValue: From<V> + Clone + Send + Sync,
+    where V: Clone,
+          StashValue: From<V> + Clone,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>)
