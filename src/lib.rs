@@ -97,6 +97,14 @@ pub trait FeatureExtractor<V: Value, Feat: Feature> {
     fn for_node(&self, node: &Node) -> Input<RuleId, Feat>;
 }
 
+#[derive(Debug)]
+pub struct Candidate<V:Value> {
+    pub node: ParsedNode<V>,
+    pub match_: ParserMatch<V>,
+    pub prio: Option<usize>,
+    pub tagged: bool,
+}
+
 pub struct Parser<V: Value, Feat: Feature, Extractor: FeatureExtractor<V, Feat>> {
     rules: RuleSet<V>,
     model: Model<RuleId, Truth, Feat>,
@@ -104,7 +112,7 @@ pub struct Parser<V: Value, Feat: Feature, Extractor: FeatureExtractor<V, Feat>>
 }
 
 impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
-    where V: Value,
+    where V: Value + ::std::fmt::Debug,
           RuleId: ClassifierId,
           Feat: Feature,
           Extractor: FeatureExtractor<V, Feat>
@@ -141,7 +149,7 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
         (&self,
          input: &str,
          dimension_prio: S)
-         -> RustlingResult<Vec<(ParsedNode<V>, ParserMatch<V>, Option<usize>, bool)>> {
+         -> RustlingResult<Vec<Candidate<V>>> {
         let candidates = self.raw_candidates(input)?
             .into_iter()
             .map(|(pn, pm)| {
@@ -151,7 +159,7 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
             .collect();
         Ok(tag_maximal_elements(candidates, |a, b| match_cmp(a, b))
                .into_iter()
-               .map(|((pn, pv, prio), tag)| (pn, pv, prio, tag))
+               .map(|((pn, pv, prio), tag)| Candidate { node: pn, match_: pv, prio, tagged: tag })
                .collect())
     }
 
@@ -172,8 +180,8 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
                                                   -> RustlingResult<Vec<ParserMatch<V>>> {
         Ok(self.candidates(input, dimension_prio)?
                .into_iter()
-               .filter(|a| a.3)
-               .map(|a| a.1)
+               .filter(|a| a.prio.is_some() && a.tagged)
+               .map(|a| a.match_)
                .collect())
     }
 

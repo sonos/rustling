@@ -1,4 +1,25 @@
 #[macro_export]
+macro_rules! variant_converters {
+    ($name:ident, $varname:ident, $varty:ty) => {
+        impl From<$varty> for $name {
+            fn from(v: $varty) -> $name {
+                $name::$varname(v)
+            }
+        }
+
+        impl $crate::AttemptFrom<$name> for $varty {
+            fn attempt_from(v: $name) -> Option<$varty> {
+                if let $name::$varname(value) = v {
+                    Some(value)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+}
+
+#[macro_export]
 macro_rules! rustling_value {
     ( #[$doc:meta] #[$derive:meta] $name:ident $kindname:ident $($varname:ident($varty:ty)),*, ) => {
         #[$doc] #[$derive]
@@ -44,23 +65,7 @@ macro_rules! rustling_value {
             }
         }
 
-        $(
-            impl From<$varty> for $name {
-                fn from(v: $varty) -> $name {
-                    $name::$varname(v)
-                }
-            }
-
-            impl AttemptFrom<$name> for $varty {
-                fn attempt_from(v: $name) -> Option<$varty> {
-                    if let $name::$varname(value) = v {
-                        Some(value)
-                    } else {
-                        None
-                    }
-                }
-            }
-        )*
+        $( variant_converters!($name, $varname, $varty); )*
     }
 }
 
