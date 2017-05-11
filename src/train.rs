@@ -45,8 +45,7 @@ pub fn train<V: Value+Debug, F: Feature, E: FeatureExtractor<V, F>>
                 .partition::<Vec<_>, _>(|candidate| ex.predicate.check(&candidate));
         // - example sanity check
         if positive_parsed_nodes.is_empty() {
-            println!("example: {:?} matched no rule", ex.text);
-            //Err(format!("example: {:?} matched no rule", ex.text))?
+            Err(format!("example: {:?} matched no rule", ex.text))?
         }
 
         // - expand parse nodes to nodes, according to the partition
