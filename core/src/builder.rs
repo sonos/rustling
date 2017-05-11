@@ -2,7 +2,7 @@ use cell;
 
 use {CoreResult, Pattern, RuleSet, Sym, SymbolTable};
 use pattern;
-use rule::{Rule, Rule1, Rule2, Rule3, Rule4, Rule5, RuleProductionArg};
+use rule::{Rule, Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, RuleProductionArg};
 
 use rule::rule_errors::*;
 
@@ -113,6 +113,29 @@ impl<StashValue: Clone> RuleSetBuilder<StashValue> {
         self.rules
             .borrow_mut()
             .push(Box::new(Rule5::new(sym, (pa, pb, pc, pd, pe), production)))
+    }
+    pub fn rule_6<S, PA, PB, PC, PD, PE, PF, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, pd: PD, pe: PE, pf: PF, production: F)
+        where S: Into<String> + AsRef<str>,
+              V: Clone + 'static,
+              StashValue: From<V> + Clone + 'static,
+              F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
+                            &RuleProductionArg<'a, PB::M>,
+                            &RuleProductionArg<'a, PC::M>,
+                            &RuleProductionArg<'a, PD::M>,
+                            &RuleProductionArg<'a, PE::M>,
+                            &RuleProductionArg<'a, PF::M>)
+                            -> RuleResult<V> + 'static + Send + Sync,
+              PA: Pattern<StashValue> + 'static,
+              PB: Pattern<StashValue> + 'static,
+              PC: Pattern<StashValue> + 'static,
+              PD: Pattern<StashValue> + 'static,
+              PE: Pattern<StashValue> + 'static,
+              PF: Pattern<StashValue> + 'static,
+    {
+        let sym = self.sym(sym);
+        self.rules
+            .borrow_mut()
+            .push(Box::new(Rule6::new(sym, (pa, pb, pc, pd, pe, pf), production)))
     }
 
     pub fn reg(&self, regex:&str) -> CoreResult<pattern::TextPattern<StashValue>> {

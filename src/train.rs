@@ -26,7 +26,7 @@ pub trait Check<V: Value>: Debug {
     fn check(&self, &ParsedNode<V>) -> bool;
 }
 
-pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
+pub fn train<V: Value+Debug, F: Feature, E: FeatureExtractor<V, F>>
     (rules: &RuleSet<V>,
      examples: Vec<Example<V>>,
      feature_extractor: E)
@@ -43,10 +43,10 @@ pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
                 .into_iter()
                 .filter(|candidate| candidate.root_node.range == ::Range(0, ex.text.len()))
                 .partition::<Vec<_>, _>(|candidate| ex.predicate.check(&candidate));
-
         // - example sanity check
         if positive_parsed_nodes.is_empty() {
-            Err(format!("example: {:?} matched no rule", ex.text))?
+            println!("example: {:?} matched no rule", ex.text);
+            //Err(format!("example: {:?} matched no rule", ex.text))?
         }
 
         // - expand parse nodes to nodes, according to the partition
@@ -70,7 +70,6 @@ pub fn train<V: Value, F: Feature, E: FeatureExtractor<V, F>>
         for pos in &positive_nodes {
             negative_nodes.remove(pos);
         }
-
         // - put node counted features, with truth value in the trainable hashmaps
         for (nodes, truth) in vec![(positive_nodes, true), (negative_nodes, false)].into_iter() {
             for n in nodes.into_iter() {
