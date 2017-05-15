@@ -7,23 +7,23 @@ use errors::*;
 use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash};
 
 
-fn seperated_substring(sentence: &str, range: Range) -> bool {
+fn separated_substring(sentence: &str, range: Range) -> bool {
     fn char_class(c: char) -> char {
-      if c.is_uppercase() {
-        'u'
-      } else if c.is_lowercase() {
-        'l'
-      } else if c.is_digit(10) {
-        'd'
-      } else {
-         c
-      }
+        if c.is_alphanumeric() { 'A' } else { c }
     }
 
-    let chars = sentence.chars().collect::<Vec<_>>();
-    let valid_start = range.0 == 0 || char_class(chars[range.0 - 1]) != char_class(chars[range.0]);
-    let valid_end = range.1 == sentence.len() || char_class(chars[range.1 - 1]) != char_class(chars[range.1]);
-    valid_start && valid_end
+    let first_mine = sentence[range.0..range.1]
+        .chars()
+        .next()
+        .map(char_class); // Some(c)
+    let last_mine = sentence[range.0..range.1]
+        .chars()
+        .next_back()
+        .map(char_class); //Some(c)
+    let last_before = sentence[..range.0].chars().next_back().map(char_class); // Option(c)
+    let first_after = sentence[range.1..].chars().next().map(char_class); // Option(c)
+
+    first_mine != last_before && last_mine != first_after
 }
 
 /// Represent a semi-inclusive range of position, in bytes, in the matched
@@ -108,9 +108,7 @@ pub trait Pattern<StashValue: Clone>: Send + Sync {
 }
 
 
-pub struct TextPattern<StashValue: Clone>(::regex::Regex,
-                                                        Sym,
-                                                        SendSyncPhantomData<StashValue>);
+pub struct TextPattern<StashValue: Clone>(::regex::Regex, Sym, SendSyncPhantomData<StashValue>);
 
 impl<StashValue: Clone> TextPattern<StashValue> {
     pub fn new(regex: ::regex::Regex, sym: Sym) -> TextPattern<StashValue> {
@@ -124,20 +122,22 @@ impl<StashValue: Clone> Pattern<StashValue> for TextPattern<StashValue> {
                  _stash: &Stash<StashValue>,
                  sentence: &str)
                  -> CoreResult<PredicateMatches<Self::M>> {
-        self.0
-            .captures_iter(&sentence)
-            .map(|cap| {
-                let full = cap.get(0)
-                    .ok_or_else(|| {
-                                    format!("No capture for regexp {} in rule {:?} for sentence: {}",
-                                            self.0,
-                                            self.1,
-                                            sentence)
-                                })?;
-                let full_range = Range(full.start(), full.end());
-                let mut groups = SmallVec::new();
-                for (ix, group) in cap.iter().enumerate() {
-                    let group = group.ok_or_else(|| {
+        let mut results = PredicateMatches::new();
+        for cap in self.0.captures_iter(&sentence) {
+            let full = cap.get(0)
+                .ok_or_else(|| {
+                                format!("No capture for regexp {} in rule {:?} for sentence: {}",
+                                        self.0,
+                                        self.1,
+                                        sentence)
+                            })?;
+            let full_range = Range(full.start(), full.end());
+            if !separated_substring(sentence, full_range) {
+                continue;
+            }
+            let mut groups = SmallVec::new();
+            for (ix, group) in cap.iter().enumerate() {
+                let group = group.ok_or_else(|| {
                             format!("No capture for regexp {} in rule {:?}, group number {} in \
                                      capture: {}",
                                     self.0,
@@ -145,16 +145,17 @@ impl<StashValue: Clone> Pattern<StashValue> for TextPattern<StashValue> {
                                     ix,
                                     full.as_str())
                         })?;
-                    let range = Range(group.start(), group.end());
-                    groups.push(range);
-                }
-                Ok(Text {
-                       groups: groups,
-                       range: full_range,
-                       pattern_sym: self.1,
-                   })
-            })
-            .collect()
+                let range = Range(group.start(), group.end());
+                groups.push(range);
+            }
+            results.push(Text {
+                             groups: groups,
+                             range: full_range,
+                             pattern_sym: self.1,
+                         })
+        }
+
+        Ok(results)
     }
 }
 
@@ -213,7 +214,7 @@ impl<V: Clone> AnyNodePattern<V> {
     pub fn new() -> AnyNodePattern<V> {
         FilterNodePattern {
             predicates: vec![],
-            _phantom: SendSyncPhantomData::new()
+            _phantom: SendSyncPhantomData::new(),
         }
     }
 }
@@ -224,7 +225,7 @@ impl<V> FilterNodePattern<V>
     pub fn filter(predicates: Vec<Box<Fn(&V) -> bool + Sync + Send>>) -> FilterNodePattern<V> {
         FilterNodePattern {
             predicates: predicates,
-            _phantom: SendSyncPhantomData::new()
+            _phantom: SendSyncPhantomData::new(),
         }
     }
 }
@@ -255,3 +256,4 @@ impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
                .collect())
     }
 }
+
