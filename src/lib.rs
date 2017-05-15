@@ -74,7 +74,11 @@ fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
                 -> Option<Ordering>
     where V: Value
 {
-    if a.1.value.kind() == b.1.value.kind() {
+    if let Some(Ordering::Greater) = a.1.range.partial_cmp(&b.1.range) {
+        Some(Ordering::Greater)
+    } else if let Some(Ordering::Less) = a.1.range.partial_cmp(&b.1.range) {
+        Some(Ordering::Less)
+    } else if a.1.value.kind() == b.1.value.kind() {
         if a.1.range == b.1.range {
             a.1.probalog.partial_cmp(&b.1.probalog)
         } else if a.1.range.intersects(&b.1.range) {

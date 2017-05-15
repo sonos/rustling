@@ -9,8 +9,8 @@ use RustlingResult;
 
 #[derive(Debug)]
 pub struct Example<V: Value> {
-    text: &'static str,
-    predicate: Box<Check<V>>,
+    pub text: &'static str,
+    pub predicate: Box<Check<V>>,
 }
 
 impl<V: Value> Example<V> {

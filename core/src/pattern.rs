@@ -6,6 +6,26 @@ use smallvec::SmallVec;
 use errors::*;
 use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash};
 
+
+fn seperated_substring(sentence: &str, range: Range) -> bool {
+    fn char_class(c: char) -> char {
+      if c.is_uppercase() {
+        'u'
+      } else if c.is_lowercase() {
+        'l'
+      } else if c.is_digit(10) {
+        'd'
+      } else {
+         c
+      }
+    }
+
+    let chars = sentence.chars().collect::<Vec<_>>();
+    let valid_start = range.0 == 0 || char_class(chars[range.0 - 1]) != char_class(chars[range.0]);
+    let valid_end = range.1 == sentence.len() || char_class(chars[range.1 - 1]) != char_class(chars[range.1]);
+    valid_start && valid_end
+}
+
 /// Represent a semi-inclusive range of position, in bytes, in the matched
 /// sentence.
 #[derive(PartialEq,Clone,Debug,Copy,Hash,Eq)]
