@@ -5,39 +5,7 @@ use smallvec::SmallVec;
 
 use errors::*;
 use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash};
-
-pub fn alphanumeric_class(c: char) -> char {
-    if c.is_alphanumeric() { 'A' } else { c }
-}
-
-pub fn detailed_class(c: char) -> char {
-    if c.is_uppercase() {
-        'u'
-    } else if c.is_lowercase() {
-        'l'
-    } else if c.is_digit(10) {
-        'd'
-    } else {
-        c
-    }
-}
-
-fn separated_substring<CharClass>(sentence: &str, range: Range, char_class: &CharClass) -> bool
-    where CharClass: Fn(char) -> char
-{
-    let first_mine = sentence[range.0..range.1]
-        .chars()
-        .next()
-        .map(char_class); // Some(c)
-    let last_mine = sentence[range.0..range.1]
-        .chars()
-        .next_back()
-        .map(char_class); //Some(c)
-    let last_before = sentence[..range.0].chars().next_back().map(char_class); // Option(c)
-    let first_after = sentence[range.1..].chars().next().map(char_class); // Option(c)
-
-    first_mine != last_before && last_mine != first_after
-}
+use {valid_boundaries, detailed_class};
 
 /// Represent a semi-inclusive range of position, in bytes, in the matched
 /// sentence.
@@ -145,7 +113,7 @@ impl<StashValue: Clone> Pattern<StashValue> for TextPattern<StashValue> {
                                         sentence)
                             })?;
             let full_range = Range(full.start(), full.end());
-            if !separated_substring(sentence, full_range, &detailed_class) {
+            if !valid_boundaries(sentence, full_range, &detailed_class) {
                 continue;
             }
             let mut groups = SmallVec::new();
@@ -209,7 +177,7 @@ impl<StashValue: Clone> Pattern<StashValue> for TextNegLHPattern<StashValue> {
                                         sentence)
                             })?;
             let full_range = Range(full.start(), full.end());
-            if !separated_substring(sentence, full_range, &detailed_class) {
+            if !valid_boundaries(sentence, full_range, &detailed_class) {
                 continue;
             }
             if let Some(mat) = self.neg_look_ahead.find(&sentence[full.end()..]) {
@@ -300,24 +268,6 @@ impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_separated_substring() {
-        let an = |c: char| if c.is_alphanumeric() { 'A' } else { c };
-        assert_eq!(true, separated_substring("abc def ret", Range(4, 7), &an)); // "def"
-        assert_eq!(false, separated_substring("abc def ret", Range(2, 8), &an)); // "c def r"
-        assert_eq!(false,
-                   separated_substring("abc def123 ret", Range(4, 7), &an)); // "def"
-        assert_eq!(true, separated_substring("def123 ret", Range(0, 6), &an)); // "def123"
-        assert_eq!(false, separated_substring("def123 ret", Range(0, 3), &an)); // "def"
-        assert_eq!(true, separated_substring("ret def", Range(4, 7), &an)); // "def"
-        assert_eq!(false, separated_substring("ret 123def", Range(7, 10), &an)); // "def"
-        assert_eq!(false, separated_substring("aéc def ret", Range(3, 9), &an)); // "c def r"
-        assert_eq!(false, separated_substring("aec def rét", Range(2, 8), &an)); // "c def r"
-        assert_eq!(false, separated_substring("aec déf ret", Range(2, 9), &an)); // "c déf r"
-        assert_eq!(false, separated_substring("aeç def ret", Range(2, 9), &an)); // "ç def r"
-        assert_eq!(true, separated_substring("aeç def ret", Range(4, 8), &an)); // " def "
-    }
 
     macro_rules! svec4 {
         ($($item:expr),*) => { {
