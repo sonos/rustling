@@ -257,3 +257,22 @@ impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_separated_substring() {
+        assert_eq!(true, separated_substring("abc def ret", Range(4, 7))); // "def"
+        assert_eq!(true, separated_substring("abc def ret", Range(3, 8))); // " def "
+        assert_eq!(false, separated_substring("abc def ret", Range(2, 8))); // "c def r"
+        assert_eq!(false, separated_substring("abc def123 ret", Range(4, 7))); // "def"
+        assert_eq!(true, separated_substring("def123 ret", Range(0, 6))); // "def123"
+        assert_eq!(false, separated_substring("def123 ret", Range(0, 3))); // "def"
+        assert_eq!(true, separated_substring("ret def", Range(4, 7))); // "def"
+        assert_eq!(false, separated_substring("ret 123def", Range(7, 10))); // "def"
+        //assert_eq!(false, separated_substring("aéc def ret", Range(2, 8))); // "c def r"
+    }
+}
+
+
