@@ -144,7 +144,7 @@ impl<StashValue: Clone> RuleSetBuilder<StashValue> {
 
     pub fn reg_neg_lh(&self, regex:&str, neg_lh:&str) -> CoreResult<pattern::TextNegLHPattern<StashValue>> {
         Ok(pattern::TextNegLHPattern::new(
-                self.reg(regex)?,
+                ::regex::Regex::new(regex)?,
                 ::regex::Regex::new(neg_lh)?,
                 self.sym(format!("{}(?:{})", regex, neg_lh))))
     }

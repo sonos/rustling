@@ -776,7 +776,7 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule6<PA, PB, PC, PD, PE, PF, V, 
 mod tests {
     use rule::*;
 
-    macro_rules! svec2 {
+    macro_rules! svec {
         ($($item:expr),*) => { {
             let mut v = ::smallvec::SmallVec::new();
             $( v.push($item); )*
