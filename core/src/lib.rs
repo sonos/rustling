@@ -14,10 +14,11 @@ use std::{rc, cell};
 pub mod pattern;
 pub mod rule;
 mod builder;
+mod range;
 
 use rule::Rule;
 use pattern::Pattern;
-pub use pattern::Range;
+pub use range::Range;
 pub use rule::rule_errors::*;
 
 pub use builder::RuleSetBuilder;

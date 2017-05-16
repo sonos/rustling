@@ -1,4 +1,4 @@
-use std::cmp::{PartialOrd, Ordering};
+
 use std::rc;
 
 use smallvec::SmallVec;
@@ -6,31 +6,7 @@ use smallvec::SmallVec;
 use errors::*;
 use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash};
 use {valid_boundaries, detailed_class};
-
-/// Represent a semi-inclusive range of position, in bytes, in the matched
-/// sentence.
-#[derive(PartialEq,Clone,Debug,Copy,Hash,Eq)]
-pub struct Range(pub usize, pub usize);
-
-impl Range {
-    pub fn intersects(&self, other: &Self) -> bool {
-        self.partial_cmp(other).is_none() && (self.1 >= other.0 && other.1 >= self.0)
-    }
-}
-
-impl PartialOrd for Range {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self == other {
-            Some(Ordering::Equal)
-        } else if self.0 <= other.0 && other.1 <= self.1 {
-            Some(Ordering::Greater)
-        } else if other.0 <= self.0 && self.1 <= other.1 {
-            Some(Ordering::Less)
-        } else {
-            None
-        }
-    }
-}
+use range::Range;
 
 pub trait Match: Clone {
     fn range(&self) -> Range;

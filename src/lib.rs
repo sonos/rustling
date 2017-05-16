@@ -62,7 +62,9 @@ pub trait Value: Clone {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParserMatch<V> {
     /// Range in bytes of matched area
-    pub range: Range,
+    pub byte_range: Range,
+    /// Range in char of matched area
+    pub char_range: Range,
     /// Actual value built from the text.
     pub value: V,
     /// Logarithmic probability of the match after machine-learned model
@@ -75,20 +77,20 @@ fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
                 -> Option<Ordering>
     where V: Value
 {
-    if let Some(Ordering::Greater) = a.1.range.partial_cmp(&b.1.range) {
+    if let Some(Ordering::Greater) = a.1.byte_range.partial_cmp(&b.1.byte_range) {
         Some(Ordering::Greater)
-    } else if let Some(Ordering::Less) = a.1.range.partial_cmp(&b.1.range) {
+    } else if let Some(Ordering::Less) = a.1.byte_range.partial_cmp(&b.1.byte_range) {
         Some(Ordering::Less)
     } else if a.1.value.kind() == b.1.value.kind() {
-        if a.1.range == b.1.range {
+        if a.1.byte_range == b.1.byte_range {
             a.1.probalog.partial_cmp(&b.1.probalog)
-        } else if a.1.range.intersects(&b.1.range) {
-            b.1.range.1.partial_cmp(&a.1.range.1)
+        } else if a.1.byte_range.intersects(&b.1.byte_range) {
+            b.1.byte_range.1.partial_cmp(&a.1.byte_range.1)
         } else {
-            a.1.range.partial_cmp(&b.1.range)
+            a.1.byte_range.partial_cmp(&b.1.byte_range)
         }
     } else {
-        if (a.1.range == b.1.range || a.1.range.intersects(&b.1.range)) &&
+        if (a.1.byte_range == b.1.byte_range || a.1.byte_range.intersects(&b.1.byte_range)) &&
            (a.2.is_some() && b.2.is_some()) {
             let prio = a.2.unwrap().partial_cmp(&b.2.unwrap()); // checked
             if let Some(Ordering::Greater) = prio {
@@ -152,7 +154,8 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
                 let features: Input<RuleId, Feat> = self.extractor.for_parsed_node(&p);
                 let probalog = self.model.classify(&features, &Truth(true))?;
                 let pm = ParserMatch {
-                    range: p.root_node.range,
+                    byte_range: p.root_node.range,
+                    char_range: p.root_node.range.char_range(input),
                     value: p.value.clone().into(),
                     probalog: probalog,
                 };
