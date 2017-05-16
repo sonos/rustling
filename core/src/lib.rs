@@ -90,15 +90,15 @@ impl SymbolTable {
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct Node {
     pub rule_sym: Sym,
-    pub range: Range,
+    pub byte_range: Range,
     pub children: ChildrenNodes,
 }
 
 impl Node {
-    fn new(sym: Sym, range: Range, children: ChildrenNodes) -> rc::Rc<Node> {
+    fn new(sym: Sym, byte_range: Range, children: ChildrenNodes) -> rc::Rc<Node> {
         rc::Rc::new(Node {
                         rule_sym: sym,
-                        range: range,
+                        byte_range: byte_range,
                         children: children,
                     })
     }
@@ -148,7 +148,7 @@ impl<StashValue: Clone> RuleSet<StashValue> {
             }
             previous_stash_size = stash.len();
         }
-        Ok(stash.into_iter().filter(|pn| valid_boundaries(sentence, pn.root_node.range, &alphanumeric_class)).collect())
+        Ok(stash.into_iter().filter(|pn| valid_boundaries(sentence, pn.root_node.byte_range, &alphanumeric_class)).collect())
     }
 
     pub fn resolve_sym(&self, sym:&Sym) -> Option<&str> {

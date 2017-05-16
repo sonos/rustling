@@ -9,13 +9,13 @@ use {valid_boundaries, detailed_class};
 use range::Range;
 
 pub trait Match: Clone {
-    fn range(&self) -> Range;
+    fn byte_range(&self) -> Range;
     fn to_node(&self) -> rc::Rc<Node>;
 }
 
 impl<V: Clone> Match for ParsedNode<V> {
-    fn range(&self) -> Range {
-        self.root_node.range
+    fn byte_range(&self) -> Range {
+        self.root_node.byte_range
     }
 
     fn to_node(&self) -> rc::Rc<Node> {
@@ -26,29 +26,29 @@ impl<V: Clone> Match for ParsedNode<V> {
 #[derive(Clone,Debug,PartialEq)]
 pub struct Text {
     pub groups: SmallVec<[Range; 4]>,
-    range: Range,
+    byte_range: Range,
     pattern_sym: Sym,
 }
 
 impl Text {
-    pub fn new(groups: SmallVec<[Range; 4]>, range: Range, pattern_sym: Sym) -> Text {
+    pub fn new(groups: SmallVec<[Range; 4]>, byte_range: Range, pattern_sym: Sym) -> Text {
         Text {
             groups: groups,
-            range: range,
+            byte_range: byte_range,
             pattern_sym: pattern_sym,
         }
     }
 }
 
 impl Match for Text {
-    fn range(&self) -> Range {
-        self.range
+    fn byte_range(&self) -> Range {
+        self.byte_range
     }
 
     fn to_node(&self) -> rc::Rc<Node> {
         rc::Rc::new(Node {
                         rule_sym: self.pattern_sym,
-                        range: self.range(),
+                        byte_range: self.byte_range(),
                         children: SmallVec::new(),
                     })
     }
@@ -107,7 +107,7 @@ impl<StashValue: Clone> Pattern<StashValue> for TextPattern<StashValue> {
             }
             results.push(Text {
                              groups: groups,
-                             range: full_range,
+                             byte_range: full_range,
                              pattern_sym: self.1,
                          })
         }
@@ -176,7 +176,7 @@ impl<StashValue: Clone> Pattern<StashValue> for TextNegLHPattern<StashValue> {
             }
             results.push(Text {
                              groups: groups,
-                             range: full_range,
+                             byte_range: full_range,
                              pattern_sym: self.pattern_sym,
                          })
         }
@@ -229,7 +229,7 @@ impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
                                if self.predicates.iter().all(|predicate| (predicate)(&v)) {
                                    Some(ParsedNode::new(it.root_node.rule_sym,
                                                         v,
-                                                        it.range(),
+                                                        it.byte_range(),
                                                         it.root_node.children.clone()))
                                } else {
                                    None

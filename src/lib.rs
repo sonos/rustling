@@ -154,8 +154,8 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
                 let features: Input<RuleId, Feat> = self.extractor.for_parsed_node(&p);
                 let probalog = self.model.classify(&features, &Truth(true))?;
                 let pm = ParserMatch {
-                    byte_range: p.root_node.range,
-                    char_range: p.root_node.range.char_range(input),
+                    byte_range: p.root_node.byte_range,
+                    char_range: p.root_node.byte_range.char_range(input),
                     value: p.value.clone().into(),
                     probalog: probalog,
                 };

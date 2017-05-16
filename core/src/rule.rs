@@ -108,7 +108,7 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
                         Ok(v) => {
                             Some(Ok(ParsedNode::new(self.sym,
                                                     StashValue::from(v),
-                                                    sub.range(),
+                                                    sub.byte_range(),
                                                     nodes)))
                         }
                         Err(e) => Some(Err(make_production_error(e))),
@@ -145,8 +145,8 @@ impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
 }
 
 fn adjacent<A: Match, B: Match>(a: &A, b: &B, sentence: &str) -> bool {
-    a.range().1 <= b.range().0 &&
-    sentence[a.range().1..b.range().0]
+    a.byte_range().1 <= b.byte_range().0 &&
+    sentence[a.byte_range().1..b.byte_range().0]
         .chars()
         .all(|c| c.is_whitespace() || c == '-')
 }
@@ -184,12 +184,12 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
                     old_node.root_node.children != nodes ||
                     old_node.root_node.rule_sym != self.sym
                 }) {
-                    let range = Range(sub.0.range().0, sub.1.range().1);
+                    let byte_range = Range(sub.0.byte_range().0, sub.1.byte_range().1);
                     match (self.production)(&RuleProductionArg::new(sentence, &sub.0), &RuleProductionArg::new(sentence, &sub.1)) {
                         Ok(v) => {
                             Some(Ok(ParsedNode::new(self.sym,
                                                     v.into(),
-                                                    range,
+                                                    byte_range,
                                                     nodes)))
                         }
                         Err(RuleError(RuleErrorKind::Invalid, _)) => None,
@@ -283,11 +283,11 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, Sta
                                 old_node.root_node.children != nodes ||
                                 old_node.root_node.rule_sym != self.sym
                             }) {
-                    let range = Range(sub.0.range().0, sub.2.range().1);
+                    let byte_range = Range(sub.0.byte_range().0, sub.2.byte_range().1);
                     match (self.production)(&RuleProductionArg::new(sentence, &sub.0),
                                             &RuleProductionArg::new(sentence, &sub.1),
                                             &RuleProductionArg::new(sentence, &sub.2)) {
-                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), range, nodes))),
+                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), byte_range, nodes))),
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
@@ -397,12 +397,12 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule<StashValue> for Rule4<PA, PB, PC, PD
                                 old_node.root_node.children != nodes ||
                                 old_node.root_node.rule_sym != self.sym
                             }) {
-                    let range = Range(sub.0.range().0, sub.3.range().1);
+                    let byte_range = Range(sub.0.byte_range().0, sub.3.byte_range().1);
                     match (self.production)(&RuleProductionArg::new(sentence, &sub.0),
                                             &RuleProductionArg::new(sentence, &sub.1),
                                             &RuleProductionArg::new(sentence, &sub.2),
                                             &RuleProductionArg::new(sentence, &sub.3)) {
-                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), range, nodes))),
+                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), byte_range, nodes))),
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
@@ -526,13 +526,13 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule<StashValue> for Rule5<PA, PB, PC
                                 old_node.root_node.children != nodes ||
                                 old_node.root_node.rule_sym != self.sym
                             }) {
-                    let range = Range(sub.0.range().0, sub.4.range().1);
+                    let byte_range = Range(sub.0.byte_range().0, sub.4.byte_range().1);
                     match (self.production)(&RuleProductionArg::new(sentence, &sub.0),
                                             &RuleProductionArg::new(sentence, &sub.1),
                                             &RuleProductionArg::new(sentence, &sub.2),
                                             &RuleProductionArg::new(sentence, &sub.3),
                                             &RuleProductionArg::new(sentence, &sub.4)) {
-                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), range, nodes))),
+                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), byte_range, nodes))),
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
@@ -670,14 +670,14 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule<StashValue> for Rule6<PA, PB
                                 old_node.root_node.children != nodes ||
                                 old_node.root_node.rule_sym != self.sym
                             }) {
-                    let range = Range(sub.0.range().0, sub.5.range().1);
+                    let byte_range = Range(sub.0.byte_range().0, sub.5.byte_range().1);
                     match (self.production)(&RuleProductionArg::new(sentence, &sub.0),
                                             &RuleProductionArg::new(sentence, &sub.1),
                                             &RuleProductionArg::new(sentence, &sub.2),
                                             &RuleProductionArg::new(sentence, &sub.3),
                                             &RuleProductionArg::new(sentence, &sub.4),
                                             &RuleProductionArg::new(sentence, &sub.5)) {
-                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), range, nodes))),
+                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), byte_range, nodes))),
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
