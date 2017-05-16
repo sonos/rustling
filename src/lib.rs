@@ -90,7 +90,18 @@ fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
     } else {
         if (a.1.range == b.1.range || a.1.range.intersects(&b.1.range)) &&
            (a.2.is_some() && b.2.is_some()) {
-            a.2.unwrap().partial_cmp(&b.2.unwrap()) // checked
+            let prio = a.2.unwrap().partial_cmp(&b.2.unwrap()); // checked
+            if let Some(Ordering::Greater) = prio {
+                Some(Ordering::Greater)
+            } else if let Some(Ordering::Less) = prio {
+                Some(Ordering::Less)
+            } else if a.1.value.intermediate() && !b.1.value.intermediate() {
+                Some(Ordering::Less)
+            } else if !a.1.value.intermediate() && b.1.value.intermediate() {
+                Some(Ordering::Greater)
+            } else {
+                prio
+            }
         } else {
             None
         }
@@ -157,7 +168,6 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
          -> RustlingResult<Vec<Candidate<V>>> {
         let candidates = self.raw_candidates(input)?
             .into_iter()
-            .filter(|&(ref pn, _)| !pn.value.intermediate())
             .map(|(pn, pm)| {
                      let p = dimension_prio(&pn.value);
                      (pn, pm, p)
@@ -322,7 +332,7 @@ mod tests {
             FP(f32),
         }
 
-        fn intermediate(&self) -> bool {
+        fn intermediate(v: &MyValue) -> bool {
             false
         }
         
