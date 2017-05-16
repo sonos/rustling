@@ -19,9 +19,9 @@ macro_rules! variant_converters {
     }
 }
 
-#[macro_export]
+#[macro_export]  
 macro_rules! rustling_value {
-    ( #[$doc:meta] #[$derive:meta] $name:ident $kindname:ident $($varname:ident($varty:ty)),*, ) => {
+    ( #[$doc:meta] #[$derive:meta] $name:ident $kindname:ident { $($varname:ident($varty:ty)),*, } fn intermediate(&self) -> bool { $( $body:tt )* } ) => {
         #[$doc] #[$derive]
         pub enum $name {
             $( $varname($varty) ),*
@@ -40,6 +40,10 @@ macro_rules! rustling_value {
                         &$name::$varname(_) => $kindname::$varname,
                     )*
                 }
+            }
+
+            fn intermediate(&self) -> bool {
+                $( $body )*
             }
         }
 

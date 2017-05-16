@@ -55,6 +55,7 @@ impl ClassId for Truth {}
 pub trait Value: Clone {
     type Kind: PartialEq;
     fn kind(&self) -> Self::Kind;
+    fn intermediate(&self) -> bool;
 }
 
 /// Match holder for the Parser.
@@ -156,6 +157,7 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
          -> RustlingResult<Vec<Candidate<V>>> {
         let candidates = self.raw_candidates(input)?
             .into_iter()
+            .filter(|&(ref pn, _)| !pn.value.intermediate())
             .map(|(pn, pm)| {
                      let p = dimension_prio(&pn.value);
                      (pn, pm, p)
@@ -315,9 +317,15 @@ mod tests {
     rustling_value! {
         #[doc="an union"]
         #[derive(Clone,PartialEq,Debug)]
-        MyValue MyValueKind
+        MyValue MyValueKind {
             UI(usize),
             FP(f32),
+        }
+
+        fn intermediate(&self) -> bool {
+            false
+        }
+        
     }
 
     #[test]
