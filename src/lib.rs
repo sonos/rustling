@@ -192,7 +192,7 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
                                  input: &str,
                                  order: &[V::Kind])
                                  -> RustlingResult<Vec<ParserMatch<V>>> {
-        self.parse_with(input, |it| order.iter().position(|k| *k == it.kind()))
+        self.parse_with(input, |it| order.iter().rev().position(|k| *k == it.kind()))
     }
 
     pub fn parse_with<S: Fn(&V) -> Option<usize>>(&self,
