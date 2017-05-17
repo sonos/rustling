@@ -55,7 +55,7 @@ impl ClassId for Truth {}
 pub trait Value: Clone {
     type Kind: PartialEq;
     fn kind(&self) -> Self::Kind;
-    fn intermediate(&self) -> bool;
+    fn latent(&self) -> bool;
 }
 
 /// Match holder for the Parser.
@@ -70,6 +70,7 @@ pub struct ParserMatch<V> {
     /// Logarithmic probability of the match after machine-learned model
     /// evaluation.
     pub probalog: f32,
+    pub latent: bool,
 }
 
 fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
@@ -97,9 +98,9 @@ fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
                 Some(Ordering::Greater)
             } else if let Some(Ordering::Less) = prio {
                 Some(Ordering::Less)
-            } else if a.1.value.intermediate() && !b.1.value.intermediate() {
+            } else if a.1.value.latent() && !b.1.value.latent() {
                 Some(Ordering::Less)
-            } else if !a.1.value.intermediate() && b.1.value.intermediate() {
+            } else if !a.1.value.latent() && b.1.value.latent() {
                 Some(Ordering::Greater)
             } else {
                 prio
@@ -158,6 +159,7 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
                     char_range: p.root_node.byte_range.char_range(input),
                     value: p.value.clone().into(),
                     probalog: probalog,
+                    latent: p.value.latent(),
                 };
                 Ok((p, pm))
             })
@@ -335,7 +337,7 @@ mod tests {
             FP(f32),
         }
 
-        fn intermediate(v: &MyValue) -> bool {
+        fn latent(v: &MyValue) -> bool {
             false
         }
         
