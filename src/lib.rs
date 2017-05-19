@@ -23,7 +23,7 @@ pub mod train;
 pub mod core {
     pub use rustling_core::pattern::{AnyNodePattern, FilterNodePattern, TextNegLHPattern,
                                      TextPattern};
-    pub use rustling_core::rule::{Rule1, Rule2, Rule3};
+    pub use rustling_core::rule::{Rule1, Rule2, Rule3, Rule4, Rule5, Rule6};
 }
 
 pub mod errors {
