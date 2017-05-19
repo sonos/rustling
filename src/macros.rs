@@ -87,7 +87,7 @@ macro_rules! rustling_value {
         $( 
             variant_converters!($name, $varname, $varty); 
             
-            impl ::rustling_core::NodePayload for $varty {
+            impl NodePayload for $varty {
                 type Payload = $payload;
                 fn extract_payload(&self) -> Option<Self::Payload> {
                     $name::from(self.clone()).extract_payload()
