@@ -10,6 +10,7 @@ use string_interner::StringInterner;
 
 use smallvec::SmallVec;
 use std::{rc, cell};
+use std::fmt::Debug;
 
 pub mod pattern;
 pub mod rule;
@@ -20,7 +21,6 @@ use rule::Rule;
 use pattern::Pattern;
 pub use range::Range;
 pub use rule::rule_errors::*;
-
 pub use builder::RuleSetBuilder;
 
 use errors::*;
@@ -42,20 +42,25 @@ pub trait AttemptFrom<V>: Sized {
     fn attempt_from(v: V) -> Option<Self>;
 }
 
-pub trait AttemptTo<T>: Sized {
-    fn attempt_to(&self) -> Option<T>;
+pub trait AttemptInto<T>: Sized {
+    fn attempt_into(self) -> Option<T>;
 }
 
-impl<S, T> AttemptTo<T> for S
+impl<S, T> AttemptInto<T> for S
     where S: Clone,
           T: AttemptFrom<S>
 {
-    fn attempt_to(&self) -> Option<T> {
-        T::attempt_from(self.clone())
+    fn attempt_into(self) -> Option<T> {
+        T::attempt_from(self)
     }
 }
 
-pub type ChildrenNodes = SmallVec<[rc::Rc<Node>; 2]>;
+pub trait NodePayload: Clone {
+    type Payload: Clone + PartialEq + Debug;
+    fn extract_payload(&self) -> Option<Self::Payload>;
+}
+
+pub type ChildrenNodes<Payload> = SmallVec<[rc::Rc<Node<Payload>>; 2]>;
 
 #[derive(Copy,Ord,Eq,Clone,PartialEq,PartialOrd,Debug,Hash,Serialize,Deserialize)]
 pub struct Sym(usize);
@@ -88,32 +93,34 @@ impl SymbolTable {
 }
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
-pub struct Node {
+pub struct Node<Payload: Clone> {
     pub rule_sym: Sym,
     pub byte_range: Range,
-    pub children: ChildrenNodes,
+    pub payload: Option<Payload>,
+    pub children: ChildrenNodes<Payload>,
 }
 
-impl Node {
-    fn new(sym: Sym, byte_range: Range, children: ChildrenNodes) -> rc::Rc<Node> {
+impl<Payload: Clone>  Node<Payload> {
+    fn new(sym: Sym, byte_range: Range, payload: Option<Payload>, children: ChildrenNodes<Payload>) -> rc::Rc<Node<Payload>> {
         rc::Rc::new(Node {
                         rule_sym: sym,
                         byte_range: byte_range,
+                        payload: payload,
                         children: children,
                     })
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct ParsedNode<V: Clone> {
-    pub root_node: rc::Rc<Node>,
+pub struct ParsedNode<V: NodePayload> {
+    pub root_node: rc::Rc<Node<V::Payload>>,
     pub value: V,
 }
 
-impl<V: Clone> ParsedNode<V> {
-    fn new(sym: Sym, v: V, r: Range, children: ChildrenNodes) -> ParsedNode<V> {
+impl<V: NodePayload> ParsedNode<V> {
+    fn new(sym: Sym, v: V, r: Range, payload: Option<V::Payload>, children: ChildrenNodes<V::Payload>) -> ParsedNode<V> {
         ParsedNode {
-            root_node: Node::new(sym, r, children),
+            root_node: Node::new(sym, r, payload, children),
             value: v,
         }
     }
@@ -121,12 +128,12 @@ impl<V: Clone> ParsedNode<V> {
 
 pub type Stash<V> = Vec<ParsedNode<V>>;
 
-pub struct RuleSet<StashValue: Clone> {
+pub struct RuleSet<StashValue: NodePayload> {
     symbols: SymbolTable,
     rules: Vec<Box<Rule<StashValue>>>,
 }
 
-impl<StashValue: Clone> RuleSet<StashValue> {
+impl<StashValue: NodePayload> RuleSet<StashValue> {
     fn apply_once(&self, stash: &mut Stash<StashValue>, sentence: &str) -> CoreResult<()> {
         let mut produced_nodes = vec![];
         for rule in &self.rules {
@@ -190,7 +197,7 @@ fn valid_boundaries<CharClass>(sentence: &str, range: Range, char_class: &CharCl
 }
 
 
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone, Debug, PartialEq)]
 pub struct SendSyncPhantomData<T>(::std::marker::PhantomData<T>);
 unsafe impl<T> Send for SendSyncPhantomData<T> {}
 unsafe impl<T> Sync for SendSyncPhantomData<T> {}

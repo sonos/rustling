@@ -1,4 +1,6 @@
 use std::fmt::Debug;
+use std::cmp::Eq;
+use std::hash::Hash;
 
 use fnv::FnvHashMap;
 use fnv::FnvHashSet;
@@ -26,11 +28,13 @@ pub trait Check<V: Value>: Debug {
     fn check(&self, &ParsedNode<V>) -> bool;
 }
 
-pub fn train<V: Value+Debug, F: Feature, E: FeatureExtractor<V, F>>
-    (rules: &RuleSet<V>,
-     examples: Vec<Example<V>>,
-     feature_extractor: E)
-     -> RustlingResult<Model<RuleId, Truth, F>> {
+pub fn train<V, F, E>(rules: &RuleSet<V>, examples: Vec<Example<V>>, feature_extractor: E)
+     -> RustlingResult<Model<RuleId, Truth, F>> 
+     where V: Value+Debug,
+           V::Payload: Debug + Eq + Hash,
+           F: Feature,
+           E: FeatureExtractor<V, F>,
+{
     let mut classified_ex: FnvHashMap<RuleId, Vec<(FnvHashMap<F, usize>, Truth)>> =
         FnvHashMap::default();
     for ex in examples.iter() {
@@ -51,7 +55,8 @@ pub fn train<V: Value+Debug, F: Feature, E: FeatureExtractor<V, F>>
         // - expand parse nodes to nodes, according to the partition
         let mut negative_nodes = FnvHashSet::default();
         let mut positive_nodes = FnvHashSet::default();
-        fn add_to_set(nodes: &mut FnvHashSet<Node>, node: &Node) {
+
+        fn add_to_set<Payload: Clone + Eq + Hash>(nodes: &mut FnvHashSet<Node<Payload>>, node: &Node<Payload>) {
             nodes.insert(node.clone());
             for child in &node.children {
                 add_to_set(nodes, child);

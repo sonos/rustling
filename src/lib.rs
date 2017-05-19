@@ -9,8 +9,8 @@ extern crate serde_derive;
 use std::cmp::{PartialOrd, Ordering};
 
 pub use rustling_core::regex;
-pub use rustling_core::{AttemptFrom, AttemptTo, Sym, Node, ParsedNode, Range, RuleSet,
-                        RuleSetBuilder};
+pub use rustling_core::{AttemptFrom, AttemptInto, Sym, Node, ParsedNode, Range, RuleSet,
+                        RuleSetBuilder, NodePayload};
 pub use rustling_core::{RuleError, RuleErrorKind, RuleResult};
 pub use rustling_ml::{ClassId, Classifier, ClassifierId, Feature, Input, Model};
 pub use train::{Check, Example};
@@ -52,11 +52,13 @@ impl ClassifierId for RuleId {}
 pub struct Truth(pub bool);
 impl ClassId for Truth {}
 
-pub trait Value: Clone {
+pub trait Value: NodePayload {
     type Kind: PartialEq;
     fn kind(&self) -> Self::Kind;
     fn latent(&self) -> bool;
 }
+
+pub trait InnerValue: NodePayload { }
 
 /// Match holder for the Parser.
 #[derive(Debug, Clone, PartialEq)]
@@ -113,7 +115,7 @@ fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
 
 pub trait FeatureExtractor<V: Value, Feat: Feature> {
     fn for_parsed_node(&self, node: &ParsedNode<V>) -> Input<RuleId, Feat>;
-    fn for_node(&self, node: &Node) -> Input<RuleId, Feat>;
+    fn for_node(&self, node: &Node<V::Payload>) -> Input<RuleId, Feat>;
 }
 
 #[derive(Debug)]
@@ -273,8 +275,14 @@ mod tests {
         assert_eq!(maximal_elements(values, cmp), vec!["baaar", "foo", "aaa"])
     }
 
+    #[derive(Copy,Clone,Debug,PartialEq)]
+    pub struct MyPayload;
+
     #[derive(Copy,Clone,Debug,PartialEq,Default)]
-    struct Int(usize);
+    pub struct Int(usize);
+
+    #[derive(Copy,Clone,Debug,PartialEq,Default)]
+    pub struct F32(f32);
 
     impl AttemptFrom<Int> for Int {
         fn attempt_from(v: Int) -> Option<Int> {
@@ -333,12 +341,16 @@ mod tests {
         #[doc="an union"]
         #[derive(Clone,PartialEq,Debug)]
         MyValue MyValueKind {
-            UI(usize),
-            FP(f32),
+            UI(Int),
+            FP(F32),
         }
 
         fn latent(v: &MyValue) -> bool {
             false
+        }
+
+        fn extract_payload(v: &MyValue) -> Option<usize> {
+            None
         }
         
     }
@@ -348,23 +360,23 @@ mod tests {
         let b = RuleSetBuilder::default();
         b.rule_1("int",
                  b.reg("\\d+").unwrap(),
-                 |a| Ok(usize::from_str(&*a.group(0))?));
+                 |a| Ok(Int(usize::from_str(&*a.group(0))?)));
         b.rule_1("fp",
                  b.reg("\\d+.\\d+").unwrap(),
-                 |a| Ok(f32::from_str(&*a.group(0))?));
+                 |a| Ok(F32(f32::from_str(&*a.group(0))?)));
         b.rule_3("pow",
-                 dim!(f32),
+                 dim!(F32),
                  b.reg("\\^").unwrap(),
-                 dim!(usize),
-                 |a, _, b| Ok(a.value().powi(*b.value() as i32)));
+                 dim!(Int),
+                 |a, _, b| Ok(F32(a.value().0.powi(b.value().0 as i32))));
         let rule_set = b.build();
         let results = rule_set.apply_all("foo: 1.5^2").unwrap();
         let values: Vec<_> = results.into_iter().map(|pn| pn.value).collect();
-        assert_eq!(vec![MyValue::UI(1),
-                        MyValue::UI(5),
-                        MyValue::UI(2),
-                        MyValue::FP(1.5),
-                        MyValue::FP(2.25)],
+        assert_eq!(vec![MyValue::UI(Int(1)),
+                        MyValue::UI(Int(5)),
+                        MyValue::UI(Int(2)),
+                        MyValue::FP(F32(1.5)),
+                        MyValue::FP(F32(2.25))],
                    values);
     }
 }

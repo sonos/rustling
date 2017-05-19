@@ -49,22 +49,30 @@ impl<'a, M: Match> RuleProductionArg<'a, M> {
     }
 }
 
-impl<'a> RuleProductionArg<'a, Text> {
+impl<'a, V: NodePayload> RuleProductionArg<'a, Text<V>> {
     pub fn group(&self, ix: usize) -> &'a str {
         let g = self.match_.groups[ix];
         &self.sentence[g.0..g.1]
     }
 }
 
-impl<'a, V: Clone> RuleProductionArg<'a, ParsedNode<V>> {
+impl<'a, V: NodePayload> RuleProductionArg<'a, ParsedNode<V>> {
     pub fn value(&self) -> &V {
         &self.match_.value
     }
 }
 
+
+fn adjacent<A: Match, B: Match>(a: &A, b: &B, sentence: &str) -> bool {
+    a.byte_range().1 <= b.byte_range().0 &&
+    sentence[a.byte_range().1..b.byte_range().0]
+        .chars()
+        .all(|c| c.is_whitespace() || c == '-')
+}
+
 type ParsedNodes<StashValue> = SmallVec<[ParsedNode<StashValue>; 1]>;
 
-pub trait Rule<StashValue: Clone>: Send + Sync {
+pub trait Rule<StashValue: NodePayload>: Send + Sync {
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
@@ -72,8 +80,8 @@ pub trait Rule<StashValue: Clone>: Send + Sync {
 }
 
 pub struct Rule1<PA, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V>,
           PA: Pattern<StashValue>
 {
@@ -84,8 +92,8 @@ pub struct Rule1<PA, V, StashValue, F>
 }
 
 impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + Send + Sync,
           PA: Pattern<StashValue>
 {
@@ -106,9 +114,11 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
                             }) {
                     match (self.production)(&RuleProductionArg::new(sentence, sub)) {
                         Ok(v) => {
+                          let payload = v.extract_payload();
                             Some(Ok(ParsedNode::new(self.sym,
-                                                    StashValue::from(v),
+                                                    v.into(),
                                                     sub.byte_range(),
+                                                    payload,
                                                     nodes)))
                         }
                         Err(e) => Some(Err(make_production_error(e))),
@@ -122,8 +132,8 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
 }
 
 impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V>,
           PA: Pattern<StashValue>
 {
@@ -144,16 +154,11 @@ impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
     }
 }
 
-fn adjacent<A: Match, B: Match>(a: &A, b: &B, sentence: &str) -> bool {
-    a.byte_range().1 <= b.byte_range().0 &&
-    sentence[a.byte_range().1..b.byte_range().0]
-        .chars()
-        .all(|c| c.is_whitespace() || c == '-')
-}
+
 
 pub struct Rule2<PA, PB, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F:for<'a>  Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V>,
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
@@ -166,8 +171,8 @@ pub struct Rule2<PA, PB, V, StashValue, F>
 
 impl<PA, PB, V, StashValue, F> Rule<StashValue>
     for Rule2<PA, PB, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V> + Send + Sync,
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
@@ -187,9 +192,11 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
                     let byte_range = Range(sub.0.byte_range().0, sub.1.byte_range().1);
                     match (self.production)(&RuleProductionArg::new(sentence, &sub.0), &RuleProductionArg::new(sentence, &sub.1)) {
                         Ok(v) => {
+                            let payload = v.extract_payload();
                             Some(Ok(ParsedNode::new(self.sym,
                                                     v.into(),
                                                     byte_range,
+                                                    payload,
                                                     nodes)))
                         }
                         Err(RuleError(RuleErrorKind::Invalid, _)) => None,
@@ -204,8 +211,8 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
 }
 
 impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V> + Send + Sync,
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
@@ -240,16 +247,17 @@ impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
     }
 }
 
+
 pub struct Rule3<PA, PB, PC, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>)
                         -> RuleResult<V> + Send + Sync,
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
-          PC: Pattern<StashValue>
+          PC: Pattern<StashValue>,
 {
     sym: Sym,
     pattern: (PA, PB, PC),
@@ -258,8 +266,8 @@ pub struct Rule3<PA, PB, PC, V, StashValue, F>
 }
 
 impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>)
@@ -287,7 +295,16 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, Sta
                     match (self.production)(&RuleProductionArg::new(sentence, &sub.0),
                                             &RuleProductionArg::new(sentence, &sub.1),
                                             &RuleProductionArg::new(sentence, &sub.2)) {
-                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), byte_range, nodes))),
+                        Ok(v) => {
+                          let payload = v.extract_payload();
+                          Some(Ok(ParsedNode::new(
+                                        self.sym, 
+                                        v.clone().into(), 
+                                        byte_range, 
+                                        payload, 
+                                        nodes)
+                              ))
+                        },
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
@@ -299,8 +316,8 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, Sta
 }
 
 impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>)
@@ -350,9 +367,10 @@ impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
     }
 }
 
+
 pub struct Rule4<PA, PB, PC, PD, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -370,8 +388,8 @@ pub struct Rule4<PA, PB, PC, PD, V, StashValue, F>
 }
 
 impl<PA, PB, PC, PD, V, StashValue, F> Rule<StashValue> for Rule4<PA, PB, PC, PD, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -402,7 +420,16 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule<StashValue> for Rule4<PA, PB, PC, PD
                                             &RuleProductionArg::new(sentence, &sub.1),
                                             &RuleProductionArg::new(sentence, &sub.2),
                                             &RuleProductionArg::new(sentence, &sub.3)) {
-                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), byte_range, nodes))),
+                        Ok(v) =>  {
+                          let payload = v.extract_payload();
+                          Some(Ok(ParsedNode::new(
+                                        self.sym, 
+                                        v.clone().into(), 
+                                        byte_range, 
+                                        payload, 
+                                        nodes)
+                          ))
+                        },
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
@@ -414,8 +441,8 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule<StashValue> for Rule4<PA, PB, PC, PD
 }
 
 impl<PA, PB, PC, PD, V, StashValue, F> Rule4<PA, PB, PC, PD, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -476,8 +503,8 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule4<PA, PB, PC, PD, V, StashValue, F>
 }
 
 pub struct Rule5<PA, PB, PC, PD, PE, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -497,8 +524,8 @@ pub struct Rule5<PA, PB, PC, PD, PE, V, StashValue, F>
 }
 
 impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule<StashValue> for Rule5<PA, PB, PC, PD, PE, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -532,7 +559,16 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule<StashValue> for Rule5<PA, PB, PC
                                             &RuleProductionArg::new(sentence, &sub.2),
                                             &RuleProductionArg::new(sentence, &sub.3),
                                             &RuleProductionArg::new(sentence, &sub.4)) {
-                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), byte_range, nodes))),
+                        Ok(v) => {
+                          let payload = v.extract_payload();
+                          Some(Ok(ParsedNode::new(
+                                        self.sym, 
+                                        v.into(), 
+                                        byte_range, 
+                                        payload, 
+                                        nodes))
+                          )
+                        },
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
@@ -544,8 +580,8 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule<StashValue> for Rule5<PA, PB, PC
 }
 
 impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule5<PA, PB, PC, PD, PE, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -615,9 +651,10 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule5<PA, PB, PC, PD, PE, V, StashVal
     }
 }
 
+
 pub struct Rule6<PA, PB, PC, PD, PE, PF, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -639,8 +676,8 @@ pub struct Rule6<PA, PB, PC, PD, PE, PF, V, StashValue, F>
 }
 
 impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule<StashValue> for Rule6<PA, PB, PC, PD, PE, PF, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -677,7 +714,10 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule<StashValue> for Rule6<PA, PB
                                             &RuleProductionArg::new(sentence, &sub.3),
                                             &RuleProductionArg::new(sentence, &sub.4),
                                             &RuleProductionArg::new(sentence, &sub.5)) {
-                        Ok(v) => Some(Ok(ParsedNode::new(self.sym, v.into(), byte_range, nodes))),
+                        Ok(v) => { 
+                          let payload = v.extract_payload();
+                          Some(Ok(ParsedNode::new(self.sym, v.clone().into(), byte_range, payload, nodes)))
+                        },
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
@@ -689,8 +729,8 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule<StashValue> for Rule6<PA, PB
 }
 
 impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule6<PA, PB, PC, PD, PE, PF, V, StashValue, F>
-    where V: Clone,
-          StashValue: From<V> + Clone,
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -770,7 +810,6 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule6<PA, PB, PC, PD, PE, PF, V, 
     }
 }
 
-
 #[cfg(test)]
 #[allow(unused_mut)]
 mod tests {
@@ -809,6 +848,13 @@ mod tests {
         }
     }
 
+    impl NodePayload for usize {
+        type Payload = usize;
+        fn extract_payload(&self) -> Option<usize> {
+            Some(*self)
+        }
+    }
+
     macro_rules! reg {
         ($st:expr, $typ:ty, $pattern:expr) => ( $crate::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $st.sym($pattern)) )
     }
@@ -826,11 +872,13 @@ mod tests {
         assert_eq!(svec4![ParsedNode::new(ten,
                                           10usize,
                                           Range(8, 11),
-                                          svec![Node::new(ten, Range(8, 11), svec![])]),
+                                          Some(10usize),
+                                          svec![Node::new(ten, Range(8, 11), None, svec![])]),
                           ParsedNode::new(ten,
                                           10usize,
                                           Range(12, 15),
-                                          svec![Node::new(ten, Range(12, 15), svec![])])],
+                                          Some(10usize),
+                                          svec![Node::new(ten, Range(12, 15), None, svec![])])],
                    rule.apply(&vec![], "foobar: ten ten").unwrap())
     }
 
@@ -844,13 +892,14 @@ mod tests {
                                                                              *integer == 10
                                                                          })])),
                        |a, b| Ok(a.value() + b.value()));
-        let stash: Stash<usize> = vec![ParsedNode::new(st.sym("ten"), 10, Range(8, 11), svec![]),
-                                       ParsedNode::new(st.sym("ten"), 10, Range(12, 15), svec![])];
+        let stash: Stash<usize> = vec![ParsedNode::new(st.sym("ten"), 10, Range(8, 11), None, svec![]),
+                                       ParsedNode::new(st.sym("ten"), 10, Range(12, 15), None, svec![])];
         assert_eq!(vec![(stash[0].clone(), stash[1].clone())],
                    rule_consec.matches(&stash, "foobar: ten ten").unwrap());
         assert_eq!(svec4![ParsedNode::new(st.sym("2 consecutive ints"),
                                           20,
                                           Range(8, 15),
+                                          Some(20),
                                           svec![stash[0].root_node.clone(),
                                                 stash[1].root_node.clone()])],
                    rule_consec.apply(&stash, "foobar: ten ten").unwrap());
@@ -866,10 +915,13 @@ mod tests {
         assert_eq!(svec4![ParsedNode::new(st.sym("int"),
                                           42,
                                           Range(8, 10),
+                                          Some(42),
                                           svec![Node::new(st.sym("\\d+"),
                                                           Range(8, 10),
+                                                          None,
                                                           svec![])])],
                    rule_int.apply(&vec![], "foobar: 42").unwrap());
     }
 
 }
+

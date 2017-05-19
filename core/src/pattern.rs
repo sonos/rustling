@@ -4,51 +4,57 @@ use std::rc;
 use smallvec::SmallVec;
 
 use errors::*;
-use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash};
+use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash, NodePayload};
 use {valid_boundaries, detailed_class};
 use range::Range;
 
 pub trait Match: Clone {
+    type NV: Clone;
     fn byte_range(&self) -> Range;
-    fn to_node(&self) -> rc::Rc<Node>;
+    fn to_node(&self) -> rc::Rc<Node<Self::NV>>;
 }
 
-impl<V: Clone> Match for ParsedNode<V> {
+impl<V: NodePayload> Match for ParsedNode<V> {
+    type NV = V::Payload;
     fn byte_range(&self) -> Range {
         self.root_node.byte_range
     }
 
-    fn to_node(&self) -> rc::Rc<Node> {
+    fn to_node(&self) -> rc::Rc<Node<Self::NV>> {
         self.root_node.clone()
     }
 }
 
 #[derive(Clone,Debug,PartialEq)]
-pub struct Text {
+pub struct Text<V: NodePayload> {
     pub groups: SmallVec<[Range; 4]>,
     byte_range: Range,
     pattern_sym: Sym,
+     _phantom: SendSyncPhantomData<V>,
 }
 
-impl Text {
-    pub fn new(groups: SmallVec<[Range; 4]>, byte_range: Range, pattern_sym: Sym) -> Text {
+impl<V: NodePayload> Text<V> {
+    pub fn new(groups: SmallVec<[Range; 4]>, byte_range: Range, pattern_sym: Sym) -> Text<V> {
         Text {
             groups: groups,
             byte_range: byte_range,
             pattern_sym: pattern_sym,
+            _phantom: SendSyncPhantomData::new(),
         }
     }
 }
 
-impl Match for Text {
+impl<V: NodePayload> Match for Text<V> {
+    type NV = V::Payload;
     fn byte_range(&self) -> Range {
         self.byte_range
     }
 
-    fn to_node(&self) -> rc::Rc<Node> {
+    fn to_node(&self) -> rc::Rc<Node<Self::NV>> {
         rc::Rc::new(Node {
                         rule_sym: self.pattern_sym,
                         byte_range: self.byte_range(),
+                        payload: None,
                         children: SmallVec::new(),
                     })
     }
@@ -56,8 +62,8 @@ impl Match for Text {
 
 pub type PredicateMatches<M> = Vec<M>;
 
-pub trait Pattern<StashValue: Clone>: Send + Sync {
-    type M: Match;
+pub trait Pattern<StashValue: NodePayload>: Send + Sync {
+    type M: Match<NV=StashValue::Payload>;
     fn predicate(&self,
                  stash: &Stash<StashValue>,
                  sentence: &str)
@@ -65,16 +71,16 @@ pub trait Pattern<StashValue: Clone>: Send + Sync {
 }
 
 
-pub struct TextPattern<StashValue: Clone>(::regex::Regex, Sym, SendSyncPhantomData<StashValue>);
+pub struct TextPattern<StashValue: NodePayload>(::regex::Regex, Sym, SendSyncPhantomData<StashValue>);
 
-impl<StashValue: Clone> TextPattern<StashValue> {
+impl<StashValue: NodePayload> TextPattern<StashValue> {
     pub fn new(regex: ::regex::Regex, sym: Sym) -> TextPattern<StashValue> {
         TextPattern(regex, sym, SendSyncPhantomData::new())
     }
 }
 
-impl<StashValue: Clone> Pattern<StashValue> for TextPattern<StashValue> {
-    type M = Text;
+impl<StashValue: NodePayload> Pattern<StashValue> for TextPattern<StashValue> {
+    type M = Text<StashValue>;
     fn predicate(&self,
                  _stash: &Stash<StashValue>,
                  sentence: &str)
@@ -109,6 +115,7 @@ impl<StashValue: Clone> Pattern<StashValue> for TextPattern<StashValue> {
                              groups: groups,
                              byte_range: full_range,
                              pattern_sym: self.1,
+                             _phantom: SendSyncPhantomData::new()
                          })
         }
 
@@ -116,14 +123,14 @@ impl<StashValue: Clone> Pattern<StashValue> for TextPattern<StashValue> {
     }
 }
 
-pub struct TextNegLHPattern<StashValue: Clone> {
+pub struct TextNegLHPattern<StashValue: NodePayload> {
     pattern: ::regex::Regex,
     neg_look_ahead: ::regex::Regex,
     pattern_sym: Sym,
     _phantom: SendSyncPhantomData<StashValue>,
 }
 
-impl<StashValue: Clone> TextNegLHPattern<StashValue> {
+impl<StashValue: NodePayload> TextNegLHPattern<StashValue> {
     pub fn new(pattern: ::regex::Regex,
                neg_look_ahead: ::regex::Regex,
                pattern_sym: Sym)
@@ -137,12 +144,12 @@ impl<StashValue: Clone> TextNegLHPattern<StashValue> {
     }
 }
 
-impl<StashValue: Clone> Pattern<StashValue> for TextNegLHPattern<StashValue> {
-    type M = Text;
+impl<StashValue: NodePayload> Pattern<StashValue> for TextNegLHPattern<StashValue> {
+    type M = Text<StashValue>;
     fn predicate(&self,
                  _stash: &Stash<StashValue>,
                  sentence: &str)
-                 -> CoreResult<PredicateMatches<Text>> {
+                 -> CoreResult<PredicateMatches<Text<StashValue>>> {
         let mut results = PredicateMatches::new();
         for cap in self.pattern.captures_iter(&sentence) {
             let full = cap.get(0)
@@ -178,6 +185,7 @@ impl<StashValue: Clone> Pattern<StashValue> for TextNegLHPattern<StashValue> {
                              groups: groups,
                              byte_range: full_range,
                              pattern_sym: self.pattern_sym,
+                             _phantom: SendSyncPhantomData::new(),
                          })
         }
 
@@ -188,13 +196,13 @@ impl<StashValue: Clone> Pattern<StashValue> for TextNegLHPattern<StashValue> {
 pub type AnyNodePattern<V> = FilterNodePattern<V>;
 
 pub struct FilterNodePattern<V>
-    where V: Clone
+    where V: NodePayload
 {
     predicates: Vec<Box<Fn(&V) -> bool + Send + Sync>>,
     _phantom: SendSyncPhantomData<V>,
 }
 
-impl<V: Clone> AnyNodePattern<V> {
+impl<V: NodePayload> AnyNodePattern<V> {
     pub fn new() -> AnyNodePattern<V> {
         FilterNodePattern {
             predicates: vec![],
@@ -204,7 +212,7 @@ impl<V: Clone> AnyNodePattern<V> {
 }
 
 impl<V> FilterNodePattern<V>
-    where V: Clone
+    where V: NodePayload
 {
     pub fn filter(predicates: Vec<Box<Fn(&V) -> bool + Sync + Send>>) -> FilterNodePattern<V> {
         FilterNodePattern {
@@ -215,8 +223,8 @@ impl<V> FilterNodePattern<V>
 }
 
 impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
-    where StashValue: Clone,
-          V: AttemptFrom<StashValue> + Clone
+    where StashValue: NodePayload,
+          V: NodePayload<Payload=StashValue::Payload> + AttemptFrom<StashValue>,
 {
     type M = ParsedNode<V>;
     fn predicate(&self,
@@ -230,6 +238,7 @@ impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
                                    Some(ParsedNode::new(it.root_node.rule_sym,
                                                         v,
                                                         it.byte_range(),
+                                                        it.root_node.payload.clone(),
                                                         it.root_node.children.clone()))
                                } else {
                                    None
@@ -264,10 +273,10 @@ mod tests {
                    pat.predicate(&stash, "aaa bbb").unwrap());
         assert_eq!(vec![Text::new(svec4!(Range(4, 7)), Range(4, 7), Sym(0))],
                    pat.predicate(&stash, "bbb aaa").unwrap());
-        assert_eq!(Vec::<Text>::new(), pat.predicate(&stash, "baaa").unwrap());
-        assert_eq!(Vec::<Text>::new(), pat.predicate(&stash, "aaab").unwrap());
-        assert_eq!(Vec::<Text>::new(), pat.predicate(&stash, "aaaé").unwrap());
-        assert_eq!(Vec::<Text>::new(), pat.predicate(&stash, "éaaa").unwrap());
+        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "baaa").unwrap());
+        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "aaab").unwrap());
+        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "aaaé").unwrap());
+        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "éaaa").unwrap());
         assert_eq!(vec![Text::new(svec4!(Range(1, 4)), Range(1, 4), Sym(0))],
                    pat.predicate(&stash, "1aaa").unwrap());
         assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],

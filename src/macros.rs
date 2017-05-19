@@ -19,9 +19,20 @@ macro_rules! variant_converters {
     }
 }
 
+macro_rules! node_payload_converter {
+    ($name:ident, $varname:ident, $varty:ty, $payload:ty) => {
+        impl ::rustling_core::NodePayload for $varty {
+            type Payload = $payload;
+            fn extract_payload(&self) -> Option<Self::Payload> {
+                $name::from(self.clone()).extract_payload()
+            }
+        }
+    }
+}
+
 #[macro_export]  
 macro_rules! rustling_value {
-    ( #[$doc:meta] #[$derive:meta] $name:ident $kindname:ident { $($varname:ident($varty:ty)),*, } fn latent($v:ident: &$t:ty) -> bool { $( $body:tt )* } ) => {
+    ( #[$doc:meta] #[$derive:meta] $name:ident $kindname:ident { $($varname:ident($varty:ty)),*, } fn latent($v1:ident: &$t1:ty) -> bool { $( $body1:tt )* } fn extract_payload($v2:ident: &$t2:ty) -> Option<$payload:ty> { $( $body2:tt )* } ) => {
         #[$doc] #[$derive]
         pub enum $name {
             $( $varname($varty) ),*
@@ -44,8 +55,19 @@ macro_rules! rustling_value {
 
             fn latent(&self) -> bool {
                 #[allow(unused_variables)]
-                fn i($v: &$t) -> bool {
-                    $( $body )*
+                fn i($v1: &$t1) -> bool {
+                    $( $body1 )*
+                }
+                i(&self)
+            }
+        }
+
+        impl NodePayload for $name {
+            type Payload = $payload;
+            fn extract_payload(&self) -> Option<Self::Payload> {
+                #[allow(unused_variables)]
+                fn i($v2: &$t2) -> Option<$payload> {
+                    $( $body2 )*
                 }
                 i(&self)
             }
@@ -73,7 +95,10 @@ macro_rules! rustling_value {
             }
         }
 
-        $( variant_converters!($name, $varname, $varty); )*
+        $( 
+            variant_converters!($name, $varname, $varty); 
+            node_payload_converter!($name, $varname, $varty, $payload);
+        )*
     }
 }
 
