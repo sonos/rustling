@@ -113,6 +113,20 @@ fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
     }
 }
 
+fn filter_overlap<V>(mut best_match: Vec<ParserMatch<V>>) -> Vec<ParserMatch<V>> {
+    best_match.sort_by_key(|m| m.byte_range.0);
+    let mut result = vec![];
+    let mut last_match = 0;
+    for m in best_match {
+        let range = m.byte_range;
+        if range.0 >= last_match {
+            result.push(m);
+            last_match = range.1;
+        }
+    }
+    result
+}
+
 pub trait FeatureExtractor<V: Value, Feat: Feature> {
     fn for_parsed_node(&self, node: &ParsedNode<V>) -> Input<RuleId, Feat>;
     fn for_node(&self, node: &Node<V::Payload>) -> Input<RuleId, Feat>;
@@ -186,26 +200,33 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
                .collect())
     }
 
-    pub fn parse(&self, input: &str) -> RustlingResult<Vec<ParserMatch<V>>> {
-        self.parse_with(input, |_| Some(0))
+    pub fn parse(&self, input: &str, remove_overlap: bool) -> RustlingResult<Vec<ParserMatch<V>>> {
+        self.parse_with(input, |_| Some(0), remove_overlap)
     }
 
     pub fn parse_with_kind_order(&self,
                                  input: &str,
-                                 order: &[V::Kind])
+                                 order: &[V::Kind], 
+                                 remove_overlap:bool)
                                  -> RustlingResult<Vec<ParserMatch<V>>> {
-        self.parse_with(input, |it| order.iter().rev().position(|k| *k == it.kind()))
+        self.parse_with(input, |it| order.iter().rev().position(|k| *k == it.kind()), remove_overlap)
     }
 
     pub fn parse_with<S: Fn(&V) -> Option<usize>>(&self,
                                                   input: &str,
-                                                  dimension_prio: S)
+                                                  dimension_prio: S, 
+                                                  remove_overlap: bool)
                                                   -> RustlingResult<Vec<ParserMatch<V>>> {
-        Ok(self.candidates(input, dimension_prio)?
+        let best_match = self.candidates(input, dimension_prio)?
                .into_iter()
                .filter(|a| a.prio.is_some() && a.tagged)
                .map(|a| a.match_)
-               .collect())
+               .collect();
+        if remove_overlap {
+            Ok(filter_overlap(best_match))
+        } else {
+            Ok(best_match)
+        }
     }
 
     pub fn resolve_sym(&self, sym:&Sym) -> Option<&str> {
@@ -378,5 +399,38 @@ mod tests {
                         MyValue::FP(F32(1.5)),
                         MyValue::FP(F32(2.25))],
                    values);
+    }
+
+    #[test]
+    fn test_filter_overlap() {
+        let matches = vec![
+            ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 1, probalog: 1.0, latent: true },
+            ParserMatch { byte_range: Range(1, 4), char_range: Range(1, 4), value: 2, probalog: 1.0, latent: true },
+        ];
+
+        assert_eq!(vec![1], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
+
+        let matches = vec![
+            ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 1, probalog: 1.0, latent: true },
+            ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 2, probalog: 1.0, latent: true },
+        ];
+
+        assert_eq!(vec![1], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
+
+        let matches = vec![
+            ParserMatch { byte_range: Range(3, 4), char_range: Range(3, 4), value: 2, probalog: 1.0, latent: true },
+            ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 1, probalog: 1.0, latent: true },
+        ];
+
+        assert_eq!(vec![1, 2], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
+
+        let matches = vec![
+            ParserMatch { byte_range: Range(3, 5), char_range: Range(3, 5), value: 1, probalog: 1.0, latent: true },
+            ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 2, probalog: 1.0, latent: true },
+            ParserMatch { byte_range: Range(2, 4), char_range: Range(2, 4), value: 3, probalog: 1.0, latent: true },
+        ];
+
+        assert_eq!(vec![2, 1], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
+    
     }
 }
