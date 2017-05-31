@@ -431,6 +431,5 @@ mod tests {
         ];
 
         assert_eq!(vec![2, 1], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
-    
     }
 }
