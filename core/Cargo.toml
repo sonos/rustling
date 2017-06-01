@@ -1,6 +1,6 @@
 [package]
 name = "rustling-core"
-version = "0.3.1"
+version = "0.3.0"
 authors = ["hdlj <hubert.delajonquiere@snips.net>", "Mathieu Poumeyrol <kali@zoy.org>"]
 
 [dependencies]
