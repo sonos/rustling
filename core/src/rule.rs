@@ -13,6 +13,7 @@ pub mod rule_errors {
         foreign_links {
             NumParseInt(::std::num::ParseIntError);
             NumParseFloat(::std::num::ParseFloatError);
+            Regex(::regex::Error);
         }
 
         errors {
@@ -35,6 +36,7 @@ macro_rules! svec {
     }
 }
 
+#[derive(Debug)]
 pub struct RuleProductionArg<'a, M: Match + 'a> {
     sentence: &'a str,
     match_: &'a M,

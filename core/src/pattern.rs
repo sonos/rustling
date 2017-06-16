@@ -28,7 +28,7 @@ impl<V: NodePayload> Match for ParsedNode<V> {
 #[derive(Clone,Debug,PartialEq)]
 pub struct Text<V: NodePayload> {
     pub groups: SmallVec<[Range; 4]>,
-    byte_range: Range,
+    pub byte_range: Range,
     pattern_sym: Sym,
      _phantom: SendSyncPhantomData<V>,
 }
