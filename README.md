@@ -1,2 +1,2 @@
-# duckling-rust
+# Rustling
 Rust implementation of Duckling
