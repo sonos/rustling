@@ -1,6 +1,6 @@
 use cell;
 
-use {CoreResult, Pattern, RuleSet, Sym, SymbolTable, NodePayload};
+use {CoreResult, Pattern, RuleSet, Sym, SymbolTable, NodePayload, Preprocessor};
 use pattern;
 use helpers::BoundariesChecker;
 use rule::{Rule, Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, RuleProductionArg};
@@ -161,7 +161,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
                 self.boundaries_checker))
     }
 
-    pub fn build(self) -> RuleSet<StashValue> {
-        RuleSet { rules: self.rules.into_inner(), symbols: self.symbols.into_inner() }
+    pub fn build_with<P: Preprocessor>(self, preprocessor: P) -> RuleSet<StashValue, P> {
+        RuleSet { rules: self.rules.into_inner(), symbols: self.symbols.into_inner(), preprocessor }
     }
 }

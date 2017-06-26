@@ -10,7 +10,7 @@ use std::cmp::{PartialOrd, Ordering};
 
 pub use rustling_core::regex;
 pub use rustling_core::{AttemptFrom, AttemptInto, Sym, Node, ParsedNode, Range, RuleSet,
-                        RuleSetBuilder, NodePayload, BoundariesChecker};
+                        RuleSetBuilder, NodePayload, Preprocessor, BoundariesChecker};
 pub use rustling_core::{RuleError, RuleErrorKind, RuleResult};
 pub use rustling_ml::{ClassId, Classifier, ClassifierId, Feature, Input, Model};
 pub use train::{Check, Example};
@@ -140,22 +140,23 @@ pub struct Candidate<V:Value> {
     pub tagged: bool,
 }
 
-pub struct Parser<V: Value, Feat: Feature, Extractor: FeatureExtractor<V, Feat>> {
-    rules: RuleSet<V>,
+pub struct Parser<V: Value, P: Preprocessor, Feat: Feature, Extractor: FeatureExtractor<V, Feat>> {
+    rules: RuleSet<V, P>,
     model: Model<RuleId, Truth, Feat>,
     extractor: Extractor,
 }
 
-impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
+impl<V, Feat, Extractor, P> Parser<V, P, Feat, Extractor>
     where V: Value + ::std::fmt::Debug,
           RuleId: ClassifierId,
           Feat: Feature,
-          Extractor: FeatureExtractor<V, Feat>
+          Extractor: FeatureExtractor<V, Feat>,
+          P: Preprocessor,
 {
-    pub fn new(rules: RuleSet<V>,
+    pub fn new(rules: RuleSet<V, P>,
                model: Model<RuleId, Truth, Feat>,
                extractor: Extractor)
-               -> Parser<V, Feat, Extractor> {
+               -> Parser<V, P, Feat, Extractor> {
         Parser {
             rules: rules,
             model: model,
@@ -311,7 +312,14 @@ mod tests {
         }
     }
 
-    fn rules() -> RuleSet<Int> {
+    struct TestPreprocessor;
+    impl Preprocessor for TestPreprocessor {
+        fn run(&self, input: &str)  -> String {
+            input.to_string()
+        }
+    }
+
+    fn rules() -> RuleSet<Int, TestPreprocessor> {
         let b = RuleSetBuilder::new(BoundariesChecker::Detailed);
         b.rule_1("integer (numeric)",
                  b.reg(r#"(\d{1,18})"#).unwrap(),
@@ -323,7 +331,7 @@ mod tests {
                  dim!(Int, vec![Box::new(|a: &Int| a.0 > 1 && a.0 < 99)]),
                  dim!(Int, vec![Box::new(|a: &Int| a.0 == 1000)]),
                  |a, _| Ok(Int(a.value().0 * 1000)));
-        b.build()
+        b.build_with(TestPreprocessor)
     }
 
     #[test]
@@ -351,7 +359,7 @@ mod tests {
                  b.reg("\\*").unwrap(),
                  dim!(Int),
                  |a, _, b| Ok(Int(a.value().0 * b.value().0)));
-        let rs = b.build();
+        let rs = b.build_with(TestPreprocessor);
         let results = rs.apply_all("foo: 12 + 42, 12* 42").unwrap();
         let values: Vec<_> = results.iter().map(|pn| pn.value).collect();
         assert_eq!(vec![Int(12), Int(42), Int(12), Int(42), Int(54), Int(504)],
@@ -390,7 +398,7 @@ mod tests {
                  b.reg("\\^").unwrap(),
                  dim!(Int),
                  |a, _, b| Ok(F32(a.value().0.powi(b.value().0 as i32))));
-        let rule_set = b.build();
+        let rule_set = b.build_with(TestPreprocessor);
         let results = rule_set.apply_all("foo: 1.5^2").unwrap();
         let values: Vec<_> = results.into_iter().map(|pn| pn.value).collect();
         assert_eq!(vec![MyValue::UI(Int(1)),

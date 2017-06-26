@@ -5,7 +5,7 @@ use std::hash::Hash;
 use fnv::FnvHashMap;
 use fnv::FnvHashSet;
 
-use {Classifier, Feature, FeatureExtractor, Model, Node, ParsedNode, RuleId, RuleSet, Truth,
+use {Classifier, Feature, FeatureExtractor, Model, Node, ParsedNode, Preprocessor, RuleId, RuleSet, Truth,
      Value};
 use RustlingResult;
 
@@ -28,12 +28,13 @@ pub trait Check<V: Value>: Debug {
     fn check(&self, &ParsedNode<V>) -> bool;
 }
 
-pub fn train<V, F, E>(rules: &RuleSet<V>, examples: Vec<Example<V>>, feature_extractor: E)
+pub fn train<V, F, E, P>(rules: &RuleSet<V, P>, examples: Vec<Example<V>>, feature_extractor: E)
      -> RustlingResult<Model<RuleId, Truth, F>> 
      where V: Value+Debug,
            V::Payload: Debug + Eq + Hash,
            F: Feature,
            E: FeatureExtractor<V, F>,
+           P: Preprocessor,
 {
     let mut classified_ex: FnvHashMap<RuleId, Vec<(FnvHashMap<F, usize>, Truth)>> =
         FnvHashMap::default();

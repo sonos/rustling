@@ -94,6 +94,10 @@ impl SymbolTable {
     }
 }
 
+pub trait Preprocessor {
+    fn run(&self, input: &str) -> String;
+}
+
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct Node<Payload: Clone> {
     pub rule_sym: Sym,
@@ -130,12 +134,13 @@ impl<V: NodePayload> ParsedNode<V> {
 
 pub type Stash<V> = Vec<ParsedNode<V>>;
 
-pub struct RuleSet<StashValue: NodePayload> {
+pub struct RuleSet<StashValue: NodePayload, P: Preprocessor> {
     symbols: SymbolTable,
     rules: Vec<Box<Rule<StashValue>>>,
+    preprocessor: P,
 }
 
-impl<StashValue: NodePayload> RuleSet<StashValue> {
+impl<StashValue: NodePayload, P: Preprocessor> RuleSet<StashValue, P> {
     fn apply_once(&self, stash: &mut Stash<StashValue>, sentence: &str) -> CoreResult<()> {
         let mut produced_nodes = vec![];
         for rule in &self.rules {
@@ -148,10 +153,11 @@ impl<StashValue: NodePayload> RuleSet<StashValue> {
     pub fn apply_all(&self, sentence: &str) -> CoreResult<Stash<StashValue>> {
         let iterations_max = 10;
         let max_stash_size = 600;
+        let preprocessed_sentence = self.preprocessor.run(sentence);
         let mut stash = vec![];
         let mut previous_stash_size = 0;
         for _ in 0..iterations_max {
-            self.apply_once(&mut stash, sentence)?;
+            self.apply_once(&mut stash, preprocessed_sentence.as_ref())?;
             if stash.len() <= previous_stash_size || stash.len() > max_stash_size {
                 break;
             }
