@@ -11,6 +11,7 @@ use string_interner::StringInterner;
 use smallvec::SmallVec;
 use std::{rc, cell};
 use std::fmt::Debug;
+use std::collections::HashMap;
 
 pub mod pattern;
 pub mod rule;
@@ -94,8 +95,65 @@ impl SymbolTable {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct PreprocessedInput {
+    pub original_input: String,
+    pub preprocessed_input: String,
+    byte_mapping: HashMap<usize, usize>
+}
+
+impl PreprocessedInput {
+    pub fn new(original_input: String, preprocessed_input: String, byte_mapping: HashMap<usize, usize>) -> PreprocessedInput {
+        PreprocessedInput {
+            original_input,
+            preprocessed_input,
+            byte_mapping,
+        }
+    }
+
+    pub fn map_byte_range(&self, range: &Range) -> CoreResult<Range> {
+        let start = self.map_byte(range.0)?;
+        let end = self.map_byte(range.1)?;
+        let mapped_range = Range(start, end);
+        if mapped_range.0 > mapped_range.1 { 
+            Err(format!("Range {:?} in the preprocessed input: {:?} cannot be mapped with Range: {:?} in the orginal input {:?}", 
+                range, 
+                self.preprocessed_input, 
+                mapped_range,  
+                self.original_input))?
+        } else {
+            Ok(mapped_range)
+        }
+    }
+
+    fn map_byte(&self, byte: usize) -> CoreResult<usize> {
+        println!("-------------------------------");
+        println!("{:?}", self.byte_mapping);
+        println!("{:?}", self.original_input.len());
+        println!("{:?}", self.preprocessed_input.len());
+
+        match self.byte_mapping.get(&byte) {
+            None => Err(format!("Byte {:?} not found in the mapping, original: {:?} and preprocessed: {:?}", 
+                        byte, 
+                        self.original_input, 
+                        self.preprocessed_input))?,
+            Some(mapped_byte) => {
+                println!("{:?}", mapped_byte);
+                if *mapped_byte <= self.original_input.len() {
+                    Ok(*mapped_byte)
+                } else {
+                    Err(format!("Mapped Byte {:?} not found in the original input, original: {:?} and preprocessed: {:?}", 
+                        byte, 
+                        self.original_input, 
+                        self.preprocessed_input))?
+                }
+            }
+        }
+    }   
+}
+
 pub trait Preprocessor {
-    fn run(&self, input: &str) -> String;
+    fn run(&self, input: &str) -> PreprocessedInput;
 }
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
@@ -140,11 +198,11 @@ pub struct RuleSet<StashValue: NodePayload, P: Preprocessor> {
     preprocessor: P,
 }
 
-impl<StashValue: NodePayload, P: Preprocessor> RuleSet<StashValue, P> {
-    fn apply_once(&self, stash: &mut Stash<StashValue>, sentence: &str) -> CoreResult<()> {
+impl<StashValue: NodePayload+Debug, P: Preprocessor> RuleSet<StashValue, P> {
+    fn apply_once(&self, stash: &mut Stash<StashValue>, input: &PreprocessedInput) -> CoreResult<()> {
         let mut produced_nodes = vec![];
         for rule in &self.rules {
-            produced_nodes.extend(rule.apply(stash, sentence)?);
+            produced_nodes.extend(rule.apply(stash, input)?);
         }
         stash.extend(produced_nodes);
         Ok(())
@@ -153,17 +211,17 @@ impl<StashValue: NodePayload, P: Preprocessor> RuleSet<StashValue, P> {
     pub fn apply_all(&self, sentence: &str) -> CoreResult<Stash<StashValue>> {
         let iterations_max = 10;
         let max_stash_size = 600;
-        let preprocessed_sentence = self.preprocessor.run(sentence);
+        let input = self.preprocessor.run(sentence);
         let mut stash = vec![];
         let mut previous_stash_size = 0;
         for _ in 0..iterations_max {
-            self.apply_once(&mut stash, preprocessed_sentence.as_ref())?;
+            self.apply_once(&mut stash, &input)?;
             if stash.len() <= previous_stash_size || stash.len() > max_stash_size {
                 break;
             }
             previous_stash_size = stash.len();
         }
-        Ok(stash.into_iter().filter(|pn| BoundariesChecker::SperatedAlphanumericWord.check(sentence, pn.root_node.byte_range)).collect())
+        Ok(stash.into_iter().filter(|pn| BoundariesChecker::SperatedAlphanumericWord.check(&input.original_input, pn.root_node.byte_range)).collect())
     }
 
     pub fn resolve_sym(&self, sym:&Sym) -> Option<&str> {

@@ -10,7 +10,7 @@ use std::cmp::{PartialOrd, Ordering};
 
 pub use rustling_core::regex;
 pub use rustling_core::{AttemptFrom, AttemptInto, Sym, Node, ParsedNode, Range, RuleSet,
-                        RuleSetBuilder, NodePayload, Preprocessor, BoundariesChecker};
+                        RuleSetBuilder, NodePayload, Preprocessor, PreprocessedInput, BoundariesChecker};
 pub use rustling_core::{RuleError, RuleErrorKind, RuleResult};
 pub use rustling_ml::{ClassId, Classifier, ClassifierId, Feature, Input, Model};
 pub use train::{Check, Example};
@@ -313,9 +313,15 @@ mod tests {
     }
 
     struct TestPreprocessor;
+
     impl Preprocessor for TestPreprocessor {
-        fn run(&self, input: &str)  -> String {
-            input.to_string()
+        fn run(&self, input: &str) -> PreprocessedInput {
+            let mut byte_mapping = ::std::collections::HashMap::new();
+            for idx in 0..(input.len() + 1) {
+                byte_mapping.insert(idx, idx);
+            }
+    
+            PreprocessedInput::new(input.to_string(), input.to_string(), byte_mapping)
         }
     }
 

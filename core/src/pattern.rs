@@ -3,6 +3,7 @@ use std::rc;
 
 use smallvec::SmallVec;
 
+use ::PreprocessedInput;
 use errors::*;
 use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash, NodePayload};
 use helpers::BoundariesChecker;
@@ -28,17 +29,19 @@ impl<V: NodePayload> Match for ParsedNode<V> {
 #[derive(Clone,Debug,PartialEq)]
 pub struct Text<V: NodePayload> {
     pub groups: SmallVec<[Range; 4]>,
-    pub byte_range: Range,
+    pub preprocessed_byte_range: Range,
+    pub original_byte_range: Range,
     pattern_sym: Sym,
      _phantom: SendSyncPhantomData<V>,
 }
 
 impl<V: NodePayload> Text<V> {
-    pub fn new(groups: SmallVec<[Range; 4]>, byte_range: Range, pattern_sym: Sym) -> Text<V> {
+    pub fn new(groups: SmallVec<[Range; 4]>, preprocessed_byte_range: Range, original_byte_range: Range, pattern_sym: Sym) -> Text<V> {
         Text {
-            groups: groups,
-            byte_range: byte_range,
-            pattern_sym: pattern_sym,
+            groups,
+            preprocessed_byte_range,
+            original_byte_range,
+            pattern_sym,
             _phantom: SendSyncPhantomData::new(),
         }
     }
@@ -47,7 +50,7 @@ impl<V: NodePayload> Text<V> {
 impl<V: NodePayload> Match for Text<V> {
     type NV = V::Payload;
     fn byte_range(&self) -> Range {
-        self.byte_range
+        self.original_byte_range
     }
 
     fn to_node(&self) -> rc::Rc<Node<Self::NV>> {
@@ -66,7 +69,7 @@ pub trait Pattern<StashValue: NodePayload>: Send + Sync {
     type M: Match<NV=StashValue::Payload>;
     fn predicate(&self,
                  stash: &Stash<StashValue>,
-                 sentence: &str)
+                 input: &PreprocessedInput)
                  -> CoreResult<PredicateMatches<Self::M>>;
 }
 
@@ -93,19 +96,20 @@ impl<StashValue: NodePayload> Pattern<StashValue> for TextPattern<StashValue> {
     type M = Text<StashValue>;
     fn predicate(&self,
                  _stash: &Stash<StashValue>,
-                 sentence: &str)
+                 input: &PreprocessedInput)
                  -> CoreResult<PredicateMatches<Self::M>> {
         let mut results = PredicateMatches::new();
-        for cap in self.pattern.captures_iter(&sentence) {
+        for cap in self.pattern.captures_iter(input.preprocessed_input.as_ref()) {
             let full = cap.get(0)
                 .ok_or_else(|| {
-                                format!("No capture for regexp {} in rule {:?} for sentence: {}",
+                                format!("No capture for regexp {} in rule {:?} for input: {:?}",
                                         self.pattern,
                                         self.pattern_sym,
-                                        sentence)
+                                        input)
                             })?;
-            let full_range = Range(full.start(), full.end());
-            if !self.boundaries_checker.check(sentence, full_range) {
+            let preprocessed_full_range = Range(full.start(), full.end());
+            let original_full_range = input.map_byte_range(&preprocessed_full_range)?;
+            if !self.boundaries_checker.check(input.original_input.as_ref(), original_full_range) {
                 continue;
             }
             let mut groups = SmallVec::new();
@@ -123,12 +127,12 @@ impl<StashValue: NodePayload> Pattern<StashValue> for TextPattern<StashValue> {
             }
             results.push(Text {
                              groups: groups,
-                             byte_range: full_range,
+                             preprocessed_byte_range: preprocessed_full_range,
+                             original_byte_range: original_full_range,
                              pattern_sym: self.pattern_sym,
                              _phantom: SendSyncPhantomData::new()
                          })
         }
-
         Ok(results)
     }
 }
@@ -161,22 +165,23 @@ impl<StashValue: NodePayload> Pattern<StashValue> for TextNegLHPattern<StashValu
     type M = Text<StashValue>;
     fn predicate(&self,
                  _stash: &Stash<StashValue>,
-                 sentence: &str)
+                 input: &PreprocessedInput)
                  -> CoreResult<PredicateMatches<Text<StashValue>>> {
         let mut results = PredicateMatches::new();
-        for cap in self.pattern.captures_iter(&sentence) {
+        for cap in self.pattern.captures_iter(input.preprocessed_input.as_ref()) {
             let full = cap.get(0)
                 .ok_or_else(|| {
-                                format!("No capture for regexp {} in rule {:?} for sentence: {}",
+                                format!("No capture for regexp {} in rule {:?} for input: {:?}",
                                         self.pattern,
                                         self.pattern_sym,
-                                        sentence)
+                                        input)
                             })?;
-            let full_range = Range(full.start(), full.end());
-            if !self.boundaries_checker.check(sentence, full_range) {
+            let preprocessed_full_range = Range(full.start(), full.end());
+            let original_full_range = input.map_byte_range(&preprocessed_full_range)?;
+            if !self.boundaries_checker.check(input.original_input.as_ref(), original_full_range) {
                 continue;
             }
-            if let Some(mat) = self.neg_look_ahead.find(&sentence[full.end()..]) {
+            if let Some(mat) = self.neg_look_ahead.find(&input.preprocessed_input[full.end()..]) {
                 if mat.start() == 0 {
                     continue;
                 }
@@ -196,9 +201,10 @@ impl<StashValue: NodePayload> Pattern<StashValue> for TextNegLHPattern<StashValu
             }
             results.push(Text {
                              groups: groups,
-                             byte_range: full_range,
+                             preprocessed_byte_range: preprocessed_full_range,
+                             original_byte_range: original_full_range,
                              pattern_sym: self.pattern_sym,
-                             _phantom: SendSyncPhantomData::new(),
+                             _phantom: SendSyncPhantomData::new()
                          })
         }
 
@@ -242,7 +248,7 @@ impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
     type M = ParsedNode<V>;
     fn predicate(&self,
                  stash: &Stash<StashValue>,
-                 _sentence: &str)
+                 _input: &PreprocessedInput)
                  -> CoreResult<PredicateMatches<ParsedNode<V>>> {
         Ok(stash
                .iter()
@@ -266,6 +272,7 @@ impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ::PreprocessedInput;
 
     macro_rules! svec4 {
         ($($item:expr),*) => { {
@@ -276,26 +283,30 @@ mod tests {
         }
     }
 
+    macro_rules! p {
+        ($sentence:expr) => (PreprocessedInput::no_preprocessing($sentence))
+    }
+
     #[test]
     fn test_regex_separated_string() {
         let stash = vec![];
         let checker = BoundariesChecker::Detailed;
         let pat: TextPattern<usize> = TextPattern::new(::regex::Regex::new("a+").unwrap(), Sym(0), checker);
-        assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
-                   pat.predicate(&stash, "aaa").unwrap());
-        assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
-                   pat.predicate(&stash, "aaa bbb").unwrap());
-        assert_eq!(vec![Text::new(svec4!(Range(4, 7)), Range(4, 7), Sym(0))],
-                   pat.predicate(&stash, "bbb aaa").unwrap());
-        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "baaa").unwrap());
-        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "aaab").unwrap());
-        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "aaaé").unwrap());
-        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "éaaa").unwrap());
-        assert_eq!(vec![Text::new(svec4!(Range(1, 4)), Range(1, 4), Sym(0))],
-                   pat.predicate(&stash, "1aaa").unwrap());
-        assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
-                   pat.predicate(&stash, "aaa1").unwrap());
-        assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
-                   pat.predicate(&stash, "aaa-toto").unwrap());
+        assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Range(0, 3), Sym(0))],
+                   pat.predicate(&stash, &p!("aaa")).unwrap());
+        assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Range(0, 3), Sym(0))],
+                   pat.predicate(&stash, &p!("aaa bbb")).unwrap());
+        assert_eq!(vec![Text::new(svec4!(Range(4, 7)), Range(4, 7), Range(4, 7), Sym(0))],
+                   pat.predicate(&stash, &p!("bbb aaa")).unwrap());
+        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, &p!("baaa")).unwrap());
+        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, &p!("aaab")).unwrap());
+        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, &p!("aaaé")).unwrap());
+        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, &p!("éaaa")).unwrap());
+        assert_eq!(vec![Text::new(svec4!(Range(1, 4)), Range(1, 4), Range(1, 4), Sym(0))],
+                   pat.predicate(&stash, &p!("1aaa")).unwrap());
+        assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Range(0, 3), Sym(0))],
+                   pat.predicate(&stash, &p!("aaa1")).unwrap());
+        assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Range(0, 3), Sym(0))],
+                   pat.predicate(&stash, &p!("aaa-toto")).unwrap());
     }
 }
