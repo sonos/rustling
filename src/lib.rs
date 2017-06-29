@@ -316,12 +316,7 @@ mod tests {
 
     impl Preprocessor for TestPreprocessor {
         fn run(&self, input: &str) -> PreprocessedInput {
-            let mut byte_mapping = ::std::collections::HashMap::new();
-            for idx in 0..(input.len() + 1) {
-                byte_mapping.insert(idx, idx);
-            }
-    
-            PreprocessedInput::new(input.to_string(), input.to_string(), byte_mapping)
+            PreprocessedInput::no_preprocessing(input)
         }
     }
 

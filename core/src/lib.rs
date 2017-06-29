@@ -111,6 +111,19 @@ impl PreprocessedInput {
         }
     }
 
+    pub fn no_preprocessing(input: &str) -> PreprocessedInput {
+        let mut byte_mapping = HashMap::new();
+        for idx in 0..(input.len() + 1) {
+            byte_mapping.insert(idx, idx);
+        }
+
+        PreprocessedInput {
+            original_input: input.to_string(),
+            preprocessed_input: input.to_string(),
+            byte_mapping: byte_mapping, 
+        }
+    }
+
     pub fn map_byte_range(&self, range: &Range) -> CoreResult<Range> {
         let start = self.map_byte(range.0)?;
         let end = self.map_byte(range.1)?;
