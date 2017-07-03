@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 
 use errors::*;
 use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash, NodePayload};
-use {valid_boundaries, detailed_class};
+use helpers::BoundariesChecker;
 use range::Range;
 
 pub trait Match: Clone {
@@ -71,11 +71,21 @@ pub trait Pattern<StashValue: NodePayload>: Send + Sync {
 }
 
 
-pub struct TextPattern<StashValue: NodePayload>(::regex::Regex, Sym, SendSyncPhantomData<StashValue>);
+pub struct TextPattern<StashValue: NodePayload> {
+    pattern: ::regex::Regex, 
+    pattern_sym: Sym, 
+    boundaries_checker: BoundariesChecker, 
+    _phantom: SendSyncPhantomData<StashValue>,
+}
 
 impl<StashValue: NodePayload> TextPattern<StashValue> {
-    pub fn new(regex: ::regex::Regex, sym: Sym) -> TextPattern<StashValue> {
-        TextPattern(regex, sym, SendSyncPhantomData::new())
+    pub fn new(regex: ::regex::Regex, sym: Sym, boundaries_checker: BoundariesChecker) -> TextPattern<StashValue> {
+        TextPattern {
+            pattern: regex, 
+            pattern_sym: sym, 
+            boundaries_checker, 
+            _phantom: SendSyncPhantomData::new()
+        }
     }
 }
 
@@ -86,16 +96,16 @@ impl<StashValue: NodePayload> Pattern<StashValue> for TextPattern<StashValue> {
                  sentence: &str)
                  -> CoreResult<PredicateMatches<Self::M>> {
         let mut results = PredicateMatches::new();
-        for cap in self.0.captures_iter(&sentence) {
+        for cap in self.pattern.captures_iter(&sentence) {
             let full = cap.get(0)
                 .ok_or_else(|| {
                                 format!("No capture for regexp {} in rule {:?} for sentence: {}",
-                                        self.0,
-                                        self.1,
+                                        self.pattern,
+                                        self.pattern_sym,
                                         sentence)
                             })?;
             let full_range = Range(full.start(), full.end());
-            if !valid_boundaries(sentence, full_range, &detailed_class) {
+            if !self.boundaries_checker.check(sentence, full_range) {
                 continue;
             }
             let mut groups = SmallVec::new();
@@ -103,8 +113,8 @@ impl<StashValue: NodePayload> Pattern<StashValue> for TextPattern<StashValue> {
                 let group = group.ok_or_else(|| {
                             format!("No capture for regexp {} in rule {:?}, group number {} in \
                                      capture: {}",
-                                    self.0,
-                                    self.1,
+                                    self.pattern,
+                                    self.pattern_sym,
                                     ix,
                                     full.as_str())
                         })?;
@@ -114,7 +124,7 @@ impl<StashValue: NodePayload> Pattern<StashValue> for TextPattern<StashValue> {
             results.push(Text {
                              groups: groups,
                              byte_range: full_range,
-                             pattern_sym: self.1,
+                             pattern_sym: self.pattern_sym,
                              _phantom: SendSyncPhantomData::new()
                          })
         }
@@ -126,6 +136,7 @@ impl<StashValue: NodePayload> Pattern<StashValue> for TextPattern<StashValue> {
 pub struct TextNegLHPattern<StashValue: NodePayload> {
     pattern: ::regex::Regex,
     neg_look_ahead: ::regex::Regex,
+    boundaries_checker: BoundariesChecker,
     pattern_sym: Sym,
     _phantom: SendSyncPhantomData<StashValue>,
 }
@@ -133,12 +144,14 @@ pub struct TextNegLHPattern<StashValue: NodePayload> {
 impl<StashValue: NodePayload> TextNegLHPattern<StashValue> {
     pub fn new(pattern: ::regex::Regex,
                neg_look_ahead: ::regex::Regex,
-               pattern_sym: Sym)
+               pattern_sym: Sym,
+               boundaries_checker: BoundariesChecker)
                -> TextNegLHPattern<StashValue> {
         TextNegLHPattern {
-            pattern: pattern,
-            neg_look_ahead: neg_look_ahead,
-            pattern_sym: pattern_sym,
+            pattern,
+            neg_look_ahead,
+            pattern_sym,
+            boundaries_checker,
             _phantom: SendSyncPhantomData::new(),
         }
     }
@@ -160,7 +173,7 @@ impl<StashValue: NodePayload> Pattern<StashValue> for TextNegLHPattern<StashValu
                                         sentence)
                             })?;
             let full_range = Range(full.start(), full.end());
-            if !valid_boundaries(sentence, full_range, &detailed_class) {
+            if !self.boundaries_checker.check(sentence, full_range) {
                 continue;
             }
             if let Some(mat) = self.neg_look_ahead.find(&sentence[full.end()..]) {
@@ -266,7 +279,8 @@ mod tests {
     #[test]
     fn test_regex_separated_string() {
         let stash = vec![];
-        let pat: TextPattern<usize> = TextPattern::new(::regex::Regex::new("a+").unwrap(), Sym(0));
+        let checker = BoundariesChecker::Detailed;
+        let pat: TextPattern<usize> = TextPattern::new(::regex::Regex::new("a+").unwrap(), Sym(0), checker);
         assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
                    pat.predicate(&stash, "aaa").unwrap());
         assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],

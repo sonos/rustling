@@ -10,7 +10,7 @@ use std::cmp::{PartialOrd, Ordering};
 
 pub use rustling_core::regex;
 pub use rustling_core::{AttemptFrom, AttemptInto, Sym, Node, ParsedNode, Range, RuleSet,
-                        RuleSetBuilder, NodePayload};
+                        RuleSetBuilder, NodePayload, BoundariesChecker};
 pub use rustling_core::{RuleError, RuleErrorKind, RuleResult};
 pub use rustling_ml::{ClassId, Classifier, ClassifierId, Feature, Input, Model};
 pub use train::{Check, Example};

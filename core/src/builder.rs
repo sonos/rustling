@@ -2,6 +2,7 @@ use cell;
 
 use {CoreResult, Pattern, RuleSet, Sym, SymbolTable, NodePayload};
 use pattern;
+use helpers::BoundariesChecker;
 use rule::{Rule, Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, RuleProductionArg};
 
 use rule::rule_errors::*;
@@ -9,13 +10,15 @@ use rule::rule_errors::*;
 pub struct RuleSetBuilder<StashValue: NodePayload> {
     symbols: cell::RefCell<SymbolTable>,
     rules: cell::RefCell<Vec<Box<Rule<StashValue>>>>,
+    boundaries_checker: BoundariesChecker,
 }
 
-impl<StashValue: NodePayload> Default for RuleSetBuilder<StashValue> {
-    fn default() -> RuleSetBuilder<StashValue> {
+impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
+    pub fn new(boundaries_checker: BoundariesChecker) -> RuleSetBuilder<StashValue> {
         RuleSetBuilder {
             symbols: cell::RefCell::new(SymbolTable::default()),
             rules: cell::RefCell::new(vec![]),
+            boundaries_checker,
         }
     }
 }
@@ -147,14 +150,15 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     }
     
     pub fn reg(&self, regex:&str) -> CoreResult<pattern::TextPattern<StashValue>> {
-        Ok(pattern::TextPattern::new(::regex::Regex::new(regex)?, self.sym(regex)))
+        Ok(pattern::TextPattern::new(::regex::Regex::new(regex)?, self.sym(regex), self.boundaries_checker))
     }
 
     pub fn reg_neg_lh(&self, regex:&str, neg_lh:&str) -> CoreResult<pattern::TextNegLHPattern<StashValue>> {
         Ok(pattern::TextNegLHPattern::new(
                 ::regex::Regex::new(regex)?,
                 ::regex::Regex::new(neg_lh)?,
-                self.sym(format!("{}(?:{})", regex, neg_lh))))
+                self.sym(format!("{}(?:{})", regex, neg_lh)),
+                self.boundaries_checker))
     }
 
     pub fn build(self) -> RuleSet<StashValue> {

@@ -816,6 +816,7 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule6<PA, PB, PC, PD, PE, PF, V, 
 #[allow(unused_mut)]
 mod tests {
     use rule::*;
+    use helpers::BoundariesChecker;
 
     macro_rules! svec {
         ($($item:expr),*) => { {
@@ -858,7 +859,7 @@ mod tests {
     }
 
     macro_rules! reg {
-        ($st:expr, $typ:ty, $pattern:expr) => ( $crate::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $st.sym($pattern)) )
+        ($st:expr, $typ:ty, $pattern:expr) => ( $crate::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $st.sym($pattern), BoundariesChecker::SperatedAlphanumericWord) )
     }
 
     #[test]
