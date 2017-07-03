@@ -150,7 +150,7 @@ impl<StashValue: NodePayload> RuleSet<StashValue> {
         let mut previous_stash_size = 0;
         for _ in 0..iterations_max {
             self.apply_once(&mut stash, sentence)?;
-            if stash.len() <= previous_stash_size && stash.len() > max_stash_size {
+            if stash.len() <= previous_stash_size || stash.len() > max_stash_size {
                 break;
             }
             previous_stash_size = stash.len();
