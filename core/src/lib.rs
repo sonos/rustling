@@ -95,7 +95,7 @@ impl SymbolTable {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PreprocessedInput {
     pub original_input: String,
     pub preprocessed_input: String,
