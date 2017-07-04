@@ -99,7 +99,7 @@ impl SymbolTable {
 pub struct PreprocessedInput {
     pub original_input: String,
     pub preprocessed_input: String,
-    byte_mapping: HashMap<usize, usize>
+    pub byte_mapping: HashMap<usize, usize>
 }
 
 impl PreprocessedInput {
@@ -139,19 +139,13 @@ impl PreprocessedInput {
         }
     }
 
-    fn map_byte(&self, byte: usize) -> CoreResult<usize> {
-        println!("-------------------------------");
-        println!("{:?}", self.byte_mapping);
-        println!("{:?}", self.original_input.len());
-        println!("{:?}", self.preprocessed_input.len());
-
+    pub fn map_byte(&self, byte: usize) -> CoreResult<usize> {
         match self.byte_mapping.get(&byte) {
             None => Err(format!("Byte {:?} not found in the mapping, original: {:?} and preprocessed: {:?}", 
                         byte, 
                         self.original_input, 
                         self.preprocessed_input))?,
             Some(mapped_byte) => {
-                println!("{:?}", mapped_byte);
                 if *mapped_byte <= self.original_input.len() {
                     Ok(*mapped_byte)
                 } else {
