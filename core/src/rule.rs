@@ -123,6 +123,7 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
                                                     payload,
                                                     nodes)))
                         }
+                        Err(RuleError(RuleErrorKind::Invalid, _)) => None,
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
@@ -307,6 +308,7 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, Sta
                                         nodes)
                               ))
                         },
+                        Err(RuleError(RuleErrorKind::Invalid, _)) => None,
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
@@ -432,6 +434,7 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule<StashValue> for Rule4<PA, PB, PC, PD
                                         nodes)
                           ))
                         },
+                        Err(RuleError(RuleErrorKind::Invalid, _)) => None,
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
@@ -571,6 +574,7 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule<StashValue> for Rule5<PA, PB, PC
                                         nodes))
                           )
                         },
+                        Err(RuleError(RuleErrorKind::Invalid, _)) => None,
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
@@ -720,6 +724,7 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule<StashValue> for Rule6<PA, PB
                           let payload = v.extract_payload();
                           Some(Ok(ParsedNode::new(self.sym, v.clone().into(), byte_range, payload, nodes)))
                         },
+                        Err(RuleError(RuleErrorKind::Invalid, _)) => None,
                         Err(e) => Some(Err(make_production_error(e))),
                     }
                 } else {
