@@ -107,7 +107,24 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
             .push(Box::new(Rule3::new(sym, (pa, pb, pc), production)))
     }
 
-    
+    pub fn rule_3_terminal<S, PA, PB, PC, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, production: F)
+        where S: Into<String> + AsRef<str>,
+              V: NodePayload<Payload=StashValue::Payload> + 'static,
+              StashValue: From<V> + 'static,
+              F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
+                            &RuleProductionArg<'a, PB::M>,
+                            &RuleProductionArg<'a, PC::M>)
+                            -> RuleResult<V> + 'static + Send + Sync,
+              PA: TerminalPattern<StashValue> + 'static,
+              PB: TerminalPattern<StashValue> + 'static,
+              PC: TerminalPattern<StashValue> + 'static
+    {
+        let sym = self.sym(sym);
+        self.composition_rules
+            .borrow_mut()
+            .push(Box::new(Rule3::new(sym, (pa, pb, pc), production)))
+    }
+
     pub fn rule_4<S, PA, PB, PC, PD, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, pd: PD, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
@@ -128,7 +145,26 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
             .push(Box::new(Rule4::new(sym, (pa, pb, pc, pd), production)))
     }
 
-    
+    pub fn rule_4_terminal<S, PA, PB, PC, PD, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, pd: PD, production: F)
+        where S: Into<String> + AsRef<str>,
+              V: NodePayload<Payload=StashValue::Payload> + 'static,
+              StashValue: From<V> + 'static,
+              F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
+                            &RuleProductionArg<'a, PB::M>,
+                            &RuleProductionArg<'a, PC::M>,
+                            &RuleProductionArg<'a, PD::M>)
+                            -> RuleResult<V> + 'static + Send + Sync,
+              PA: TerminalPattern<StashValue> + 'static,
+              PB: TerminalPattern<StashValue> + 'static,
+              PC: TerminalPattern<StashValue> + 'static,
+              PD: TerminalPattern<StashValue> + 'static,
+    {
+        let sym = self.sym(sym);
+        self.composition_rules
+            .borrow_mut()
+            .push(Box::new(Rule4::new(sym, (pa, pb, pc, pd), production)))
+    }
+
     pub fn rule_5<S, PA, PB, PC, PD, PE, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, pd: PD, pe: PE, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
@@ -144,6 +180,28 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
               PC: Pattern<StashValue> + 'static,
               PD: Pattern<StashValue> + 'static,
               PE: Pattern<StashValue> + 'static,
+    {
+        let sym = self.sym(sym);
+        self.composition_rules
+            .borrow_mut()
+            .push(Box::new(Rule5::new(sym, (pa, pb, pc, pd, pe), production)))
+    }
+
+    pub fn rule_5_terminal<S, PA, PB, PC, PD, PE, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, pd: PD, pe: PE, production: F)
+        where S: Into<String> + AsRef<str>,
+              V: NodePayload<Payload=StashValue::Payload> + 'static,
+              StashValue: From<V> + 'static,
+              F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
+                            &RuleProductionArg<'a, PB::M>,
+                            &RuleProductionArg<'a, PC::M>,
+                            &RuleProductionArg<'a, PD::M>,
+                            &RuleProductionArg<'a, PE::M>)
+                            -> RuleResult<V> + 'static + Send + Sync,
+              PA: TerminalPattern<StashValue> + 'static,
+              PB: TerminalPattern<StashValue> + 'static,
+              PC: TerminalPattern<StashValue> + 'static,
+              PD: TerminalPattern<StashValue> + 'static,
+              PE: TerminalPattern<StashValue> + 'static,
     {
         let sym = self.sym(sym);
         self.composition_rules
@@ -168,6 +226,30 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
               PD: Pattern<StashValue> + 'static,
               PE: Pattern<StashValue> + 'static,
               PF: Pattern<StashValue> + 'static,
+    {
+        let sym = self.sym(sym);
+        self.composition_rules
+            .borrow_mut()
+            .push(Box::new(Rule6::new(sym, (pa, pb, pc, pd, pe, pf), production)))
+    }
+
+    pub fn rule_6_terminal<S, PA, PB, PC, PD, PE, PF, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, pd: PD, pe: PE, pf: PF, production: F)
+        where S: Into<String> + AsRef<str>,
+              V: NodePayload<Payload=StashValue::Payload> + 'static,
+              StashValue: From<V> + 'static,
+              F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
+                            &RuleProductionArg<'a, PB::M>,
+                            &RuleProductionArg<'a, PC::M>,
+                            &RuleProductionArg<'a, PD::M>,
+                            &RuleProductionArg<'a, PE::M>,
+                            &RuleProductionArg<'a, PF::M>)
+                            -> RuleResult<V> + 'static + Send + Sync,
+              PA: TerminalPattern<StashValue> + 'static,
+              PB: TerminalPattern<StashValue> + 'static,
+              PC: TerminalPattern<StashValue> + 'static,
+              PD: TerminalPattern<StashValue> + 'static,
+              PE: TerminalPattern<StashValue> + 'static,
+              PF: TerminalPattern<StashValue> + 'static,
     {
         let sym = self.sym(sym);
         self.composition_rules
