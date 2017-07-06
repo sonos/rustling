@@ -19,6 +19,7 @@ mod range;
 mod helpers;
 
 use rule::Rule;
+use rule::TerminalRule;
 use pattern::Pattern;
 use pattern::TerminalPattern;
 pub use range::Range;
@@ -133,13 +134,24 @@ pub type Stash<V> = Vec<ParsedNode<V>>;
 
 pub struct RuleSet<StashValue: NodePayload> {
     symbols: SymbolTable,
-    rules: Vec<Box<Rule<StashValue>>>,
+    composition_rules: Vec<Box<Rule<StashValue>>>,
+    terminal_rules: Vec<Box<TerminalRule<StashValue>>>,
 }
 
 impl<StashValue: NodePayload> RuleSet<StashValue> {
-    fn apply_once(&self, stash: &mut Stash<StashValue>, sentence: &str) -> CoreResult<()> {
+
+    fn apply_terminal_rules(&self, stash: &mut Stash<StashValue>, sentence: &str) -> CoreResult<()> {
         let mut produced_nodes = vec![];
-        for rule in &self.rules {
+        for rule in &self.terminal_rules {
+            produced_nodes.extend(rule.apply(stash, sentence)?);
+        }
+        stash.extend(produced_nodes);
+        Ok(())
+    }
+
+    fn apply_composition_rules(&self, stash: &mut Stash<StashValue>, sentence: &str) -> CoreResult<()> {
+        let mut produced_nodes = vec![];
+        for rule in &self.composition_rules {
             produced_nodes.extend(rule.apply(stash, sentence)?);
         }
         stash.extend(produced_nodes);
@@ -150,14 +162,18 @@ impl<StashValue: NodePayload> RuleSet<StashValue> {
         let iterations_max = 10;
         let max_stash_size = 600;
         let mut stash = vec![];
-        let mut previous_stash_size = 0;
+        
+        self.apply_terminal_rules(&mut stash, sentence)?;
+        let mut previous_stash_size = stash.len();
+        
         for _ in 0..iterations_max {
-            self.apply_once(&mut stash, sentence)?;
+            self.apply_composition_rules(&mut stash, sentence)?;
             if stash.len() <= previous_stash_size || stash.len() > max_stash_size {
                 break;
             }
             previous_stash_size = stash.len();
         }
+        
         Ok(stash.into_iter().filter(|pn| BoundariesChecker::SperatedAlphanumericWord.check(sentence, pn.root_node.byte_range)).collect())
     }
 

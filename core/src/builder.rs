@@ -3,13 +3,14 @@ use cell;
 use {CoreResult, Pattern, TerminalPattern, RuleSet, Sym, SymbolTable, NodePayload};
 use pattern;
 use helpers::BoundariesChecker;
-use rule::{Rule, Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, RuleProductionArg};
+use rule::{Rule, TerminalRule, Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, RuleProductionArg};
 
 use rule::rule_errors::*;
 
 pub struct RuleSetBuilder<StashValue: NodePayload> {
     symbols: cell::RefCell<SymbolTable>,
-    rules: cell::RefCell<Vec<Box<Rule<StashValue>>>>,
+    composition_rules: cell::RefCell<Vec<Box<Rule<StashValue>>>>,
+    terminal_rules: cell::RefCell<Vec<Box<TerminalRule<StashValue>>>>,
     boundaries_checker: BoundariesChecker,
 }
 
@@ -17,7 +18,8 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     pub fn new(boundaries_checker: BoundariesChecker) -> RuleSetBuilder<StashValue> {
         RuleSetBuilder {
             symbols: cell::RefCell::new(SymbolTable::default()),
-            rules: cell::RefCell::new(vec![]),
+            composition_rules: cell::RefCell::new(vec![]),
+            terminal_rules: cell::RefCell::new(vec![]),
             boundaries_checker,
         }
     }
@@ -39,9 +41,9 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
               PA: Pattern<StashValue> + 'static
     {
         let sym = self.sym(sym);
-        self.rules
+        self.composition_rules
             .borrow_mut()
-            .push(Box::new(Rule1::new(sym, false, pa, production)))
+            .push(Box::new(Rule1::new(sym, pa, production)))
     }
 
     pub fn rule_1_terminal<S, PA, V, F>(&self, sym: S, pa: PA, production: F)
@@ -52,9 +54,9 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
               PA: TerminalPattern<StashValue> + 'static
     {
         let sym = self.sym(sym);
-        self.rules
+        self.terminal_rules
             .borrow_mut()
-            .push(Box::new(Rule1::new(sym, true, pa, production)))
+            .push(Box::new(Rule1::new(sym, pa, production)))
     }
     
     pub fn rule_2<S, PA, PB, V, F>(&self, sym: S, pa: PA, pb: PB, production: F)
@@ -67,9 +69,9 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
               PB: Pattern<StashValue> + 'static
     {
         let sym = self.sym(sym);
-        self.rules
+        self.composition_rules
             .borrow_mut()
-            .push(Box::new(Rule2::new(sym, false, (pa, pb), production)))
+            .push(Box::new(Rule2::new(sym, (pa, pb), production)))
     }
 
     pub fn rule_2_terminal<S, PA, PB, V, F>(&self, sym: S, pa: PA, pb: PB, production: F)
@@ -82,9 +84,9 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
               PB: TerminalPattern<StashValue> + 'static
     {
         let sym = self.sym(sym);
-        self.rules
+        self.terminal_rules
             .borrow_mut()
-            .push(Box::new(Rule2::new(sym, true, (pa, pb), production)))
+            .push(Box::new(Rule2::new(sym, (pa, pb), production)))
     }
 
     pub fn rule_3<S, PA, PB, PC, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, production: F)
@@ -100,9 +102,9 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
               PC: Pattern<StashValue> + 'static
     {
         let sym = self.sym(sym);
-        self.rules
+        self.composition_rules
             .borrow_mut()
-            .push(Box::new(Rule3::new(sym, false, (pa, pb, pc), production)))
+            .push(Box::new(Rule3::new(sym, (pa, pb, pc), production)))
     }
 
     
@@ -121,9 +123,9 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
               PD: Pattern<StashValue> + 'static,
     {
         let sym = self.sym(sym);
-        self.rules
+        self.composition_rules
             .borrow_mut()
-            .push(Box::new(Rule4::new(sym, false, (pa, pb, pc, pd), production)))
+            .push(Box::new(Rule4::new(sym, (pa, pb, pc, pd), production)))
     }
 
     
@@ -144,11 +146,10 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
               PE: Pattern<StashValue> + 'static,
     {
         let sym = self.sym(sym);
-        self.rules
+        self.composition_rules
             .borrow_mut()
-            .push(Box::new(Rule5::new(sym, false, (pa, pb, pc, pd, pe), production)))
+            .push(Box::new(Rule5::new(sym, (pa, pb, pc, pd, pe), production)))
     }
-
     
     pub fn rule_6<S, PA, PB, PC, PD, PE, PF, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, pd: PD, pe: PE, pf: PF, production: F)
         where S: Into<String> + AsRef<str>,
@@ -169,9 +170,9 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
               PF: Pattern<StashValue> + 'static,
     {
         let sym = self.sym(sym);
-        self.rules
+        self.composition_rules
             .borrow_mut()
-            .push(Box::new(Rule6::new(sym, false, (pa, pb, pc, pd, pe, pf), production)))
+            .push(Box::new(Rule6::new(sym, (pa, pb, pc, pd, pe, pf), production)))
     }
     
     pub fn reg(&self, regex:&str) -> CoreResult<pattern::TextPattern<StashValue>> {
@@ -187,6 +188,6 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     }
 
     pub fn build(self) -> RuleSet<StashValue> {
-        RuleSet { rules: self.rules.into_inner(), symbols: self.symbols.into_inner() }
+        RuleSet { symbols: self.symbols.into_inner(), terminal_rules: self.terminal_rules.into_inner(), composition_rules: self.composition_rules.into_inner() }
     }
 }

@@ -79,8 +79,9 @@ pub trait Rule<StashValue: NodePayload>: Send + Sync {
              stash: &Stash<StashValue>,
              sentence: &str)
              -> CoreResult<ParsedNodes<StashValue>>;
-    fn is_terminal(&self) -> bool;
 }
+
+pub trait TerminalRule<StashValue: NodePayload>: Rule<StashValue> { }
 
 pub struct Rule1<PA, V, StashValue, F>
     where V: NodePayload,
@@ -91,7 +92,6 @@ pub struct Rule1<PA, V, StashValue, F>
     sym: Sym,
     pattern: PA,
     production: F,
-    is_terminal: bool,
     _phantom: SendSyncPhantomData<(V, StashValue)>,
 }
 
@@ -134,11 +134,13 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
             })
             .collect()
     }
-
-    fn is_terminal(&self) -> bool {
-        self.is_terminal
-    }
 }
+
+impl<PA, V, StashValue, F> TerminalRule<StashValue> for Rule1<PA, V, StashValue, F>
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + Send + Sync,
+          PA: TerminalPattern<StashValue> { }
 
 impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
     where V: NodePayload,
@@ -146,10 +148,9 @@ impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V>,
           PA: Pattern<StashValue>
 {
-    pub fn new(sym: Sym, is_terminal: bool, pat: PA, prod: F) -> Rule1<PA, V, StashValue, F> {
+    pub fn new(sym: Sym, pat: PA, prod: F) -> Rule1<PA, V, StashValue, F> {
         Rule1 {
             sym: sym,
-            is_terminal: is_terminal,
             pattern: pat,
             production: prod,
             _phantom: SendSyncPhantomData::new(),
@@ -174,7 +175,6 @@ pub struct Rule2<PA, PB, V, StashValue, F>
           PB: Pattern<StashValue>,
 {
     sym: Sym,
-    is_terminal: bool,
     pattern: (PA, PB),
     production: F,
     _phantom: SendSyncPhantomData<(V,  StashValue)>,
@@ -219,11 +219,15 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
             })
             .collect()
     }
-
-    fn is_terminal(&self) -> bool {
-        self.is_terminal
-    }
 }
+
+impl<PA, PB, V, StashValue, F> TerminalRule<StashValue>
+    for Rule2<PA, PB, V, StashValue, F>
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V> + Send + Sync,
+          PA: TerminalPattern<StashValue>,
+          PB: TerminalPattern<StashValue> { }
 
 impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
     where V: NodePayload,
@@ -233,13 +237,11 @@ impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
           PB: Pattern<StashValue>,
 {
     pub fn new(sym: Sym,
-               is_terminal: bool,
                pat: (PA, PB),
-               prod: F,)
+               prod: F)
                -> Rule2<PA, PB, V, StashValue, F> {
         Rule2 {
             sym: sym,
-            is_terminal: is_terminal,
             pattern: pat,
             production: prod,
             _phantom: SendSyncPhantomData::new(),
@@ -277,7 +279,6 @@ pub struct Rule3<PA, PB, PC, V, StashValue, F>
           PC: Pattern<StashValue>,
 {
     sym: Sym,
-    is_terminal: bool,
     pattern: (PA, PB, PC),
     production: F,
     _phantom: SendSyncPhantomData<(V, StashValue)>,
@@ -332,10 +333,6 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, Sta
             })
             .collect()
     }
-
-    fn is_terminal(&self) -> bool {
-        self.is_terminal
-    }
 }
 
 impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
@@ -349,10 +346,9 @@ impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
           PB: Pattern<StashValue>,
           PC: Pattern<StashValue>
 {
-    pub fn new(sym: Sym, is_terminal: bool, pat: (PA, PB, PC), prod: F) -> Rule3<PA, PB, PC, V, StashValue, F> {
+    pub fn new(sym: Sym, pat: (PA, PB, PC), prod: F) -> Rule3<PA, PB, PC, V, StashValue, F> {
         Rule3 {
             sym: sym,
-            is_terminal: is_terminal,
             pattern: pat,
             production: prod,
             _phantom: SendSyncPhantomData::new(),
@@ -406,7 +402,6 @@ pub struct Rule4<PA, PB, PC, PD, V, StashValue, F>
           PD: Pattern<StashValue>,
 {
     sym: Sym,
-    is_terminal: bool,
     pattern: (PA, PB, PC, PD),
     production: F,
     _phantom: SendSyncPhantomData<(V, StashValue)>,
@@ -464,10 +459,6 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule<StashValue> for Rule4<PA, PB, PC, PD
             })
             .collect()
     }
-
-    fn is_terminal(&self) -> bool {
-        self.is_terminal
-    }
 }
 
 impl<PA, PB, PC, PD, V, StashValue, F> Rule4<PA, PB, PC, PD, V, StashValue, F>
@@ -483,10 +474,9 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule4<PA, PB, PC, PD, V, StashValue, F>
           PC: Pattern<StashValue>,
           PD: Pattern<StashValue>,
 {
-    pub fn new(sym: Sym, is_terminal: bool, pat: (PA, PB, PC, PD), prod: F) -> Rule4<PA, PB, PC, PD, V, StashValue, F> {
+    pub fn new(sym: Sym, pat: (PA, PB, PC, PD), prod: F) -> Rule4<PA, PB, PC, PD, V, StashValue, F> {
         Rule4 {
             sym: sym,
-            is_terminal: is_terminal,
             pattern: pat,
             production: prod,
             _phantom: SendSyncPhantomData::new(),
@@ -549,7 +539,6 @@ pub struct Rule5<PA, PB, PC, PD, PE, V, StashValue, F>
           PE: Pattern<StashValue>,
 {
     sym: Sym,
-    is_terminal: bool,
     pattern: (PA, PB, PC, PD, PE),
     production: F,
     _phantom: SendSyncPhantomData<(V, StashValue)>,
@@ -610,10 +599,6 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule<StashValue> for Rule5<PA, PB, PC
             })
             .collect()
     }
-
-    fn is_terminal(&self) -> bool {
-        self.is_terminal
-    }
 }
 
 impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule5<PA, PB, PC, PD, PE, V, StashValue, F>
@@ -631,10 +616,9 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule5<PA, PB, PC, PD, PE, V, StashVal
           PD: Pattern<StashValue>,
           PE: Pattern<StashValue>,
 {
-    pub fn new(sym: Sym, is_terminal: bool, pat: (PA, PB, PC, PD, PE), prod: F) -> Rule5<PA, PB, PC, PD, PE, V, StashValue, F> {
+    pub fn new(sym: Sym, pat: (PA, PB, PC, PD, PE), prod: F) -> Rule5<PA, PB, PC, PD, PE, V, StashValue, F> {
         Rule5 {
             sym: sym,
-            is_terminal: is_terminal,
             pattern: pat,
             production: prod,
             _phantom: SendSyncPhantomData::new(),
@@ -708,7 +692,6 @@ pub struct Rule6<PA, PB, PC, PD, PE, PF, V, StashValue, F>
           PF: Pattern<StashValue>,
 {
     sym: Sym,
-    is_terminal: bool,
     pattern: (PA, PB, PC, PD, PE, PF),
     production: F,
     _phantom: SendSyncPhantomData<(V, StashValue)>,
@@ -766,10 +749,6 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule<StashValue> for Rule6<PA, PB
             })
             .collect()
     }
-
-    fn is_terminal(&self) -> bool {
-        self.is_terminal
-    }
 }
 
 impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule6<PA, PB, PC, PD, PE, PF, V, StashValue, F>
@@ -789,10 +768,9 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule6<PA, PB, PC, PD, PE, PF, V, 
           PE: Pattern<StashValue>,
           PF: Pattern<StashValue>,
 {
-    pub fn new(sym: Sym, is_terminal: bool, pat: (PA, PB, PC, PD, PE, PF), prod: F) -> Rule6<PA, PB, PC, PD, PE, PF, V, StashValue, F> {
+    pub fn new(sym: Sym, pat: (PA, PB, PC, PD, PE, PF), prod: F) -> Rule6<PA, PB, PC, PD, PE, PF, V, StashValue, F> {
         Rule6 {
             sym: sym,
-            is_terminal: is_terminal,
             pattern: pat,
             production: prod,
             _phantom: SendSyncPhantomData::new(),
