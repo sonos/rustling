@@ -20,6 +20,7 @@ mod helpers;
 
 use rule::Rule;
 use pattern::Pattern;
+use pattern::TerminalPattern;
 pub use range::Range;
 pub use rule::rule_errors::*;
 pub use builder::RuleSetBuilder;
