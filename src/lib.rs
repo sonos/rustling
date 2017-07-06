@@ -58,8 +58,6 @@ pub trait Value: NodePayload {
     fn latent(&self) -> bool;
 }
 
-pub trait InnerValue: NodePayload { }
-
 /// Match holder for the Parser.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParserMatch<V> {
