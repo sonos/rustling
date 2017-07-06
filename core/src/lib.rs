@@ -17,6 +17,7 @@ pub mod rule;
 mod builder;
 mod range;
 mod helpers;
+mod stash;
 
 use rule::Rule;
 use rule::TerminalRule;
