@@ -81,6 +81,8 @@ pub trait Rule<StashValue: NodePayload>: Send + Sync {
              -> CoreResult<ParsedNodes<StashValue>>;
 }
 
+pub trait TerminalRule<StashValue: NodePayload>: Rule<StashValue> { }
+
 pub struct Rule1<PA, V, StashValue, F>
     where V: NodePayload,
           StashValue: NodePayload<Payload=V::Payload> + From<V>,
@@ -133,6 +135,12 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
             .collect()
     }
 }
+
+impl<PA, V, StashValue, F> TerminalRule<StashValue> for Rule1<PA, V, StashValue, F>
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + Send + Sync,
+          PA: TerminalPattern<StashValue> { }
 
 impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
     where V: NodePayload,
@@ -212,6 +220,14 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
             .collect()
     }
 }
+
+impl<PA, PB, V, StashValue, F> TerminalRule<StashValue>
+    for Rule2<PA, PB, V, StashValue, F>
+    where V: NodePayload,
+          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V> + Send + Sync,
+          PA: TerminalPattern<StashValue>,
+          PB: TerminalPattern<StashValue> { }
 
 impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
     where V: NodePayload,
