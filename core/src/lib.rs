@@ -17,7 +17,9 @@ pub mod rule;
 mod builder;
 mod range;
 mod helpers;
+mod stash;
 
+use stash::Stash;
 use rule::Rule;
 use rule::TerminalRule;
 use pattern::Pattern;
@@ -26,6 +28,7 @@ pub use range::Range;
 pub use rule::rule_errors::*;
 pub use builder::RuleSetBuilder;
 pub use helpers::BoundariesChecker;
+pub use stash::{StashIndexable, InnerStashIndexable};
 
 use errors::*;
 pub mod errors {
@@ -130,15 +133,13 @@ impl<V: NodePayload> ParsedNode<V> {
     }
 }
 
-pub type Stash<V> = Vec<ParsedNode<V>>;
-
-pub struct RuleSet<StashValue: NodePayload> {
+pub struct RuleSet<StashValue: NodePayload+StashIndexable> {
     symbols: SymbolTable,
     composition_rules: Vec<Box<Rule<StashValue>>>,
     terminal_rules: Vec<Box<TerminalRule<StashValue>>>,
 }
 
-impl<StashValue: NodePayload> RuleSet<StashValue> {
+impl<StashValue: NodePayload+StashIndexable> RuleSet<StashValue> {
 
     fn apply_terminal_rules(&self, stash: &mut Stash<StashValue>, sentence: &str) -> CoreResult<()> {
         let mut produced_nodes = vec![];
@@ -158,10 +159,10 @@ impl<StashValue: NodePayload> RuleSet<StashValue> {
         Ok(())
     }
 
-    pub fn apply_all(&self, sentence: &str) -> CoreResult<Stash<StashValue>> {
+    pub fn apply_all(&self, sentence: &str) -> CoreResult<Vec<ParsedNode<StashValue>>> {
         let iterations_max = 10;
         let max_stash_size = 600;
-        let mut stash = vec![];
+        let mut stash = Stash::default();
         
         self.apply_terminal_rules(&mut stash, sentence)?;
         let mut previous_stash_size = stash.len();
@@ -173,7 +174,6 @@ impl<StashValue: NodePayload> RuleSet<StashValue> {
             }
             previous_stash_size = stash.len();
         }
-        
         Ok(stash.into_iter().filter(|pn| BoundariesChecker::SperatedAlphanumericWord.check(sentence, pn.root_node.byte_range)).collect())
     }
 

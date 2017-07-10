@@ -4,7 +4,7 @@ use std::rc;
 use smallvec::SmallVec;
 
 use errors::*;
-use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash, NodePayload};
+use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash, StashIndexable, InnerStashIndexable, NodePayload};
 use helpers::BoundariesChecker;
 use range::Range;
 
@@ -62,7 +62,7 @@ impl<V: NodePayload> Match for Text<V> {
 
 pub type PredicateMatches<M> = Vec<M>;
 
-pub trait Pattern<StashValue: NodePayload>: Send + Sync {
+pub trait Pattern<StashValue: NodePayload+StashIndexable>: Send + Sync {
     type M: Match<NV=StashValue::Payload>;
     fn predicate(&self,
                  stash: &Stash<StashValue>,
@@ -70,16 +70,16 @@ pub trait Pattern<StashValue: NodePayload>: Send + Sync {
                  -> CoreResult<PredicateMatches<Self::M>>;
 }
 
-pub trait TerminalPattern<StashValue: NodePayload>: Pattern<StashValue, M=Text<StashValue>> { }
+pub trait TerminalPattern<StashValue: NodePayload+StashIndexable>: Pattern<StashValue, M=Text<StashValue>> { }
 
-pub struct TextPattern<StashValue: NodePayload> {
+pub struct TextPattern<StashValue: NodePayload+StashIndexable> {
     pattern: ::regex::Regex, 
     pattern_sym: Sym, 
     boundaries_checker: BoundariesChecker, 
     _phantom: SendSyncPhantomData<StashValue>,
 }
 
-impl<StashValue: NodePayload> TextPattern<StashValue> {
+impl<StashValue: NodePayload+StashIndexable> TextPattern<StashValue> {
     pub fn new(regex: ::regex::Regex, sym: Sym, boundaries_checker: BoundariesChecker) -> TextPattern<StashValue> {
         TextPattern {
             pattern: regex, 
@@ -90,7 +90,7 @@ impl<StashValue: NodePayload> TextPattern<StashValue> {
     }
 }
 
-impl<StashValue: NodePayload> Pattern<StashValue> for TextPattern<StashValue> {
+impl<StashValue: NodePayload+StashIndexable> Pattern<StashValue> for TextPattern<StashValue> {
     type M = Text<StashValue>;
     fn predicate(&self,
                  _stash: &Stash<StashValue>,
@@ -134,9 +134,9 @@ impl<StashValue: NodePayload> Pattern<StashValue> for TextPattern<StashValue> {
     }
 }
 
-impl<StashValue: NodePayload> TerminalPattern<StashValue> for TextPattern<StashValue> {}
+impl<StashValue: NodePayload+StashIndexable> TerminalPattern<StashValue> for TextPattern<StashValue> {}
 
-pub struct TextNegLHPattern<StashValue: NodePayload> {
+pub struct TextNegLHPattern<StashValue: NodePayload+StashIndexable> {
     pattern: ::regex::Regex,
     neg_look_ahead: ::regex::Regex,
     boundaries_checker: BoundariesChecker,
@@ -144,7 +144,7 @@ pub struct TextNegLHPattern<StashValue: NodePayload> {
     _phantom: SendSyncPhantomData<StashValue>,
 }
 
-impl<StashValue: NodePayload> TextNegLHPattern<StashValue> {
+impl<StashValue: NodePayload+StashIndexable> TextNegLHPattern<StashValue> {
     pub fn new(pattern: ::regex::Regex,
                neg_look_ahead: ::regex::Regex,
                pattern_sym: Sym,
@@ -160,7 +160,7 @@ impl<StashValue: NodePayload> TextNegLHPattern<StashValue> {
     }
 }
 
-impl<StashValue: NodePayload> Pattern<StashValue> for TextNegLHPattern<StashValue> {
+impl<StashValue: NodePayload+StashIndexable> Pattern<StashValue> for TextNegLHPattern<StashValue> {
     type M = Text<StashValue>;
     fn predicate(&self,
                  _stash: &Stash<StashValue>,
@@ -209,18 +209,18 @@ impl<StashValue: NodePayload> Pattern<StashValue> for TextNegLHPattern<StashValu
     }
 }
 
-impl<StashValue: NodePayload> TerminalPattern<StashValue> for TextNegLHPattern<StashValue> {}
+impl<StashValue: NodePayload+StashIndexable> TerminalPattern<StashValue> for TextNegLHPattern<StashValue> {}
 
 pub type AnyNodePattern<V> = FilterNodePattern<V>;
 
 pub struct FilterNodePattern<V>
-    where V: NodePayload
+    where V: NodePayload + InnerStashIndexable
 {
     predicates: Vec<Box<Fn(&V) -> bool + Send + Sync>>,
     _phantom: SendSyncPhantomData<V>,
 }
 
-impl<V: NodePayload> AnyNodePattern<V> {
+impl<V: NodePayload+InnerStashIndexable> AnyNodePattern<V> {
     pub fn new() -> AnyNodePattern<V> {
         FilterNodePattern {
             predicates: vec![],
@@ -230,7 +230,7 @@ impl<V: NodePayload> AnyNodePattern<V> {
 }
 
 impl<V> FilterNodePattern<V>
-    where V: NodePayload
+    where V: NodePayload + InnerStashIndexable
 {
     pub fn filter(predicates: Vec<Box<Fn(&V) -> bool + Sync + Send>>) -> FilterNodePattern<V> {
         FilterNodePattern {
@@ -241,30 +241,33 @@ impl<V> FilterNodePattern<V>
 }
 
 impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
-    where StashValue: NodePayload,
-          V: NodePayload<Payload=StashValue::Payload> + AttemptFrom<StashValue>,
+    where StashValue: NodePayload + StashIndexable,
+          V: NodePayload<Payload=StashValue::Payload> + InnerStashIndexable<Index=StashValue::Index> + AttemptFrom<StashValue>,
 {
     type M = ParsedNode<V>;
     fn predicate(&self,
                  stash: &Stash<StashValue>,
                  _sentence: &str)
                  -> CoreResult<PredicateMatches<ParsedNode<V>>> {
-        Ok(stash
-               .iter()
-               .filter_map(|it| if let Some(v) = V::attempt_from(it.value.clone()) {
-                               if self.predicates.iter().all(|predicate| (predicate)(&v)) {
-                                   Some(ParsedNode::new(it.root_node.rule_sym,
-                                                        v,
-                                                        it.byte_range(),
-                                                        it.root_node.payload.clone(),
-                                                        it.root_node.children.clone()))
-                               } else {
-                                   None
-                               }
-                           } else {
-                               None
-                           })
-               .collect())
+        Ok(stash.filter(|v|{
+            self.predicates.iter().all(|predicate| (predicate)(&v))
+        }))
+        // Ok(stash
+        //        .iter()
+        //        .filter_map(|it| if let Some(v) = V::attempt_from(it.value.clone()) {
+        //                        if self.predicates.iter().all(|predicate| (predicate)(&v)) {
+        //                            Some(ParsedNode::new(it.root_node.rule_sym,
+        //                                                 v,
+        //                                                 it.byte_range(),
+        //                                                 it.root_node.payload.clone(),
+        //                                                 it.root_node.children.clone()))
+        //                        } else {
+        //                            None
+        //                        }
+        //                    } else {
+        //                        None
+        //                    })
+        //        .collect())
     }
 }
 

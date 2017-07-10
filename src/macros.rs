@@ -27,7 +27,7 @@ macro_rules! rustling_value {
             $( $varname($varty) ),*
         }
 
-        #[derive(Debug,Copy,Clone,PartialEq)]
+        #[derive(Debug,Copy,Clone,PartialEq, Hash, Eq)]
         pub enum $kindname {
             $( $varname ),*
         }
@@ -48,6 +48,17 @@ macro_rules! rustling_value {
                     $( $body1 )*
                 }
                 i(&self)
+            }
+        }
+
+        impl StashIndexable for $name {
+            type Index = $kindname;
+            fn index(&self) -> Self::Index {
+                match self {
+                    $(
+                        &$name::$varname(_) => $kindname::$varname,
+                    )*
+                }
             }
         }
 
@@ -91,6 +102,13 @@ macro_rules! rustling_value {
                 type Payload = $payload;
                 fn extract_payload(&self) -> Option<Self::Payload> {
                     $name::from(self.clone()).extract_payload()
+                }
+            }
+
+            impl InnerStashIndexable for $varty {
+                type Index = $kindname;
+                fn index() -> Self::Index {
+                    $kindname::$varname
                 }
             }
         )*

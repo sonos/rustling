@@ -6,7 +6,7 @@ use fnv::FnvHashMap;
 use fnv::FnvHashSet;
 
 use {Classifier, Feature, FeatureExtractor, Model, Node, ParsedNode, RuleId, RuleSet, Truth,
-     Value};
+     Value, StashIndexable};
 use RustlingResult;
 
 #[derive(Debug)]
@@ -30,7 +30,7 @@ pub trait Check<V: Value>: Debug {
 
 pub fn train<V, F, E>(rules: &RuleSet<V>, examples: Vec<Example<V>>, feature_extractor: E)
      -> RustlingResult<Model<RuleId, Truth, F>> 
-     where V: Value+Debug,
+     where V: Value+Debug+StashIndexable,
            V::Payload: Debug + Eq + Hash,
            F: Feature,
            E: FeatureExtractor<V, F>,

@@ -1,20 +1,20 @@
 use cell;
 
-use {CoreResult, Pattern, TerminalPattern, RuleSet, Sym, SymbolTable, NodePayload};
+use {CoreResult, Pattern, StashIndexable, TerminalPattern, RuleSet, Sym, SymbolTable, NodePayload};
 use pattern;
 use helpers::BoundariesChecker;
 use rule::{Rule, TerminalRule, Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, RuleProductionArg};
 
 use rule::rule_errors::*;
 
-pub struct RuleSetBuilder<StashValue: NodePayload> {
+pub struct RuleSetBuilder<StashValue: NodePayload+StashIndexable> {
     symbols: cell::RefCell<SymbolTable>,
     composition_rules: cell::RefCell<Vec<Box<Rule<StashValue>>>>,
     terminal_rules: cell::RefCell<Vec<Box<TerminalRule<StashValue>>>>,
     boundaries_checker: BoundariesChecker,
 }
 
-impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
+impl<StashValue: NodePayload+StashIndexable> RuleSetBuilder<StashValue> {
     pub fn new(boundaries_checker: BoundariesChecker) -> RuleSetBuilder<StashValue> {
         RuleSetBuilder {
             symbols: cell::RefCell::new(SymbolTable::default()),
@@ -25,7 +25,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     }
 }
 
-impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
+impl<StashValue: NodePayload+StashIndexable> RuleSetBuilder<StashValue> {
 
     pub fn sym<S>(&self, val: S) -> Sym
         where S: Into<String> + AsRef<str> {
@@ -36,7 +36,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     pub fn rule_1<S, PA, V, F>(&self, sym: S, pa: PA, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
-              StashValue: From<V> + 'static,
+              StashValue: StashIndexable + From<V> + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + 'static + Send + Sync,
               PA: Pattern<StashValue> + 'static
     {
@@ -49,7 +49,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     pub fn rule_1_terminal<S, PA, V, F>(&self, sym: S, pa: PA, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
-              StashValue: From<V> + 'static,
+              StashValue: StashIndexable + From<V> + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + 'static + Send + Sync,
               PA: TerminalPattern<StashValue> + 'static
     {
@@ -62,7 +62,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     pub fn rule_2<S, PA, PB, V, F>(&self, sym: S, pa: PA, pb: PB, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
-              StashValue: From<V> + 'static,
+              StashValue: StashIndexable + From<V> + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>)
                             -> RuleResult<V> + 'static + Send + Sync,
               PA: Pattern<StashValue> + 'static,
@@ -77,7 +77,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     pub fn rule_2_terminal<S, PA, PB, V, F>(&self, sym: S, pa: PA, pb: PB, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
-              StashValue: From<V> + 'static,
+              StashValue: StashIndexable + From<V> + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>)
                             -> RuleResult<V> + 'static + Send + Sync,
               PA: TerminalPattern<StashValue> + 'static,
@@ -92,7 +92,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     pub fn rule_3<S, PA, PB, PC, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
-              StashValue: From<V> + 'static,
+              StashValue: StashIndexable + From<V> + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                             &RuleProductionArg<'a, PB::M>,
                             &RuleProductionArg<'a, PC::M>)
@@ -110,7 +110,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     pub fn rule_3_terminal<S, PA, PB, PC, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
-              StashValue: From<V> + 'static,
+              StashValue: StashIndexable + From<V> + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                             &RuleProductionArg<'a, PB::M>,
                             &RuleProductionArg<'a, PC::M>)
@@ -128,7 +128,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     pub fn rule_4<S, PA, PB, PC, PD, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, pd: PD, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
-              StashValue: From<V> + 'static,
+              StashValue: StashIndexable + From<V> + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                             &RuleProductionArg<'a, PB::M>,
                             &RuleProductionArg<'a, PC::M>,
@@ -148,7 +148,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     pub fn rule_4_terminal<S, PA, PB, PC, PD, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, pd: PD, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
-              StashValue: From<V> + 'static,
+              StashValue: StashIndexable + From<V> + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                             &RuleProductionArg<'a, PB::M>,
                             &RuleProductionArg<'a, PC::M>,
@@ -168,7 +168,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     pub fn rule_5<S, PA, PB, PC, PD, PE, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, pd: PD, pe: PE, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
-              StashValue: From<V> + 'static,
+              StashValue: StashIndexable + From<V> + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                             &RuleProductionArg<'a, PB::M>,
                             &RuleProductionArg<'a, PC::M>,
@@ -190,7 +190,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     pub fn rule_5_terminal<S, PA, PB, PC, PD, PE, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, pd: PD, pe: PE, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
-              StashValue: From<V> + 'static,
+              StashValue: StashIndexable + From<V> + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                             &RuleProductionArg<'a, PB::M>,
                             &RuleProductionArg<'a, PC::M>,
@@ -212,7 +212,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     pub fn rule_6<S, PA, PB, PC, PD, PE, PF, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, pd: PD, pe: PE, pf: PF, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
-              StashValue: From<V> + 'static,
+              StashValue: StashIndexable + From<V> + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                             &RuleProductionArg<'a, PB::M>,
                             &RuleProductionArg<'a, PC::M>,
@@ -236,7 +236,7 @@ impl<StashValue: NodePayload> RuleSetBuilder<StashValue> {
     pub fn rule_6_terminal<S, PA, PB, PC, PD, PE, PF, V, F>(&self, sym: S, pa: PA, pb: PB, pc: PC, pd: PD, pe: PE, pf: PF, production: F)
         where S: Into<String> + AsRef<str>,
               V: NodePayload<Payload=StashValue::Payload> + 'static,
-              StashValue: From<V> + 'static,
+              StashValue: StashIndexable + From<V> + 'static,
               F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                             &RuleProductionArg<'a, PB::M>,
                             &RuleProductionArg<'a, PC::M>,
