@@ -69,7 +69,7 @@ fn adjacent<A: Match, B: Match>(a: &A, b: &B, sentence: &str) -> bool {
     a.byte_range().1 <= b.byte_range().0 &&
     sentence[a.byte_range().1..b.byte_range().0]
         .chars()
-        .all(|c| c.is_whitespace() || c == '-')
+        .all(|c| c.is_whitespace())
 }
 
 type ParsedNodes<StashValue> = SmallVec<[ParsedNode<StashValue>; 1]>;
