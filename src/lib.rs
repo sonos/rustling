@@ -10,7 +10,7 @@ use std::cmp::{PartialOrd, Ordering};
 
 pub use rustling_core::regex;
 pub use rustling_core::{AttemptFrom, AttemptInto, Sym, Node, ParsedNode, Range, RuleSet,
-                        RuleSetBuilder, NodePayload, BoundariesChecker};
+                        RuleSetBuilder, NodePayload, BoundariesChecker, StashIndexable, InnerStashIndexable};
 pub use rustling_core::{RuleError, RuleErrorKind, RuleResult};
 pub use rustling_ml::{ClassId, Classifier, ClassifierId, Feature, Input, Model};
 pub use train::{Check, Example};
@@ -140,14 +140,14 @@ pub struct Candidate<V:Value> {
     pub tagged: bool,
 }
 
-pub struct Parser<V: Value, Feat: Feature, Extractor: FeatureExtractor<V, Feat>> {
+pub struct Parser<V: Value + StashIndexable, Feat: Feature, Extractor: FeatureExtractor<V, Feat>> {
     rules: RuleSet<V>,
     model: Model<RuleId, Truth, Feat>,
     extractor: Extractor,
 }
 
 impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
-    where V: Value + ::std::fmt::Debug,
+    where V: Value + ::std::fmt::Debug + StashIndexable,
           RuleId: ClassifierId,
           Feat: Feature,
           Extractor: FeatureExtractor<V, Feat>

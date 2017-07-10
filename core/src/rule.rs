@@ -69,23 +69,23 @@ fn adjacent<A: Match, B: Match>(a: &A, b: &B, sentence: &str) -> bool {
     a.byte_range().1 <= b.byte_range().0 &&
     sentence[a.byte_range().1..b.byte_range().0]
         .chars()
-        .all(|c| c.is_whitespace() || c == '-')
+        .all(|c| c.is_whitespace())
 }
 
 type ParsedNodes<StashValue> = SmallVec<[ParsedNode<StashValue>; 1]>;
 
-pub trait Rule<StashValue: NodePayload>: Send + Sync {
+pub trait Rule<StashValue: NodePayload+StashIndexable>: Send + Sync {
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
              -> CoreResult<ParsedNodes<StashValue>>;
 }
 
-pub trait TerminalRule<StashValue: NodePayload>: Rule<StashValue> { }
+pub trait TerminalRule<StashValue: NodePayload+StashIndexable>: Rule<StashValue> { }
 
 pub struct Rule1<PA, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V>,
           PA: Pattern<StashValue>
 {
@@ -97,7 +97,7 @@ pub struct Rule1<PA, V, StashValue, F>
 
 impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + Send + Sync,
           PA: Pattern<StashValue>
 {
@@ -138,13 +138,13 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
 
 impl<PA, V, StashValue, F> TerminalRule<StashValue> for Rule1<PA, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + Send + Sync,
           PA: TerminalPattern<StashValue> { }
 
 impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V>,
           PA: Pattern<StashValue>
 {
@@ -169,7 +169,7 @@ impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
 
 pub struct Rule2<PA, PB, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F:for<'a>  Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V>,
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
@@ -183,7 +183,7 @@ pub struct Rule2<PA, PB, V, StashValue, F>
 impl<PA, PB, V, StashValue, F> Rule<StashValue>
     for Rule2<PA, PB, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V> + Send + Sync,
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
@@ -224,14 +224,14 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
 impl<PA, PB, V, StashValue, F> TerminalRule<StashValue>
     for Rule2<PA, PB, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V> + Send + Sync,
           PA: TerminalPattern<StashValue>,
           PB: TerminalPattern<StashValue> { }
 
 impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>, &RuleProductionArg<'a, PB::M>) -> RuleResult<V> + Send + Sync,
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
@@ -269,7 +269,7 @@ impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
 
 pub struct Rule3<PA, PB, PC, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>)
@@ -286,7 +286,7 @@ pub struct Rule3<PA, PB, PC, V, StashValue, F>
 
 impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>)
@@ -337,7 +337,7 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, Sta
 
 impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>)
@@ -390,7 +390,7 @@ impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
 
 pub struct Rule4<PA, PB, PC, PD, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -409,7 +409,7 @@ pub struct Rule4<PA, PB, PC, PD, V, StashValue, F>
 
 impl<PA, PB, PC, PD, V, StashValue, F> Rule<StashValue> for Rule4<PA, PB, PC, PD, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -463,7 +463,7 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule<StashValue> for Rule4<PA, PB, PC, PD
 
 impl<PA, PB, PC, PD, V, StashValue, F> Rule4<PA, PB, PC, PD, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -525,7 +525,7 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule4<PA, PB, PC, PD, V, StashValue, F>
 
 pub struct Rule5<PA, PB, PC, PD, PE, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -546,7 +546,7 @@ pub struct Rule5<PA, PB, PC, PD, PE, V, StashValue, F>
 
 impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule<StashValue> for Rule5<PA, PB, PC, PD, PE, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -603,7 +603,7 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule<StashValue> for Rule5<PA, PB, PC
 
 impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule5<PA, PB, PC, PD, PE, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -676,7 +676,7 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule5<PA, PB, PC, PD, PE, V, StashVal
 
 pub struct Rule6<PA, PB, PC, PD, PE, PF, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -699,7 +699,7 @@ pub struct Rule6<PA, PB, PC, PD, PE, PF, V, StashValue, F>
 
 impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule<StashValue> for Rule6<PA, PB, PC, PD, PE, PF, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -753,7 +753,7 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule<StashValue> for Rule6<PA, PB
 
 impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule6<PA, PB, PC, PD, PE, PF, V, StashValue, F>
     where V: NodePayload,
-          StashValue: NodePayload<Payload=V::Payload> + From<V>,
+          StashValue: NodePayload<Payload=V::Payload> + StashIndexable + From<V>,
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>,
                         &RuleProductionArg<'a, PB::M>,
                         &RuleProductionArg<'a, PC::M>,
@@ -879,6 +879,13 @@ mod tests {
         }
     }
 
+    impl StashIndexable for usize {
+      type Index = usize;
+      fn index(&self) -> usize {
+        0
+      }
+    }
+
     macro_rules! reg {
         ($st:expr, $typ:ty, $pattern:expr) => ( $crate::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $st.sym($pattern), BoundariesChecker::SperatedAlphanumericWord) )
     }
@@ -944,7 +951,7 @@ mod tests {
                                                           Range(8, 10),
                                                           None,
                                                           svec![])])],
-                   rule_int.apply(&vec![], "foobar: 42").unwrap());
+                   rule_int.apply(&Stash::default(), "foobar: 42").unwrap());
     }
 
 }
