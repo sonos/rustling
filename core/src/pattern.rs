@@ -70,6 +70,7 @@ pub trait Pattern<StashValue: NodePayload>: Send + Sync {
                  -> CoreResult<PredicateMatches<Self::M>>;
 }
 
+pub trait TerminalPattern<StashValue: NodePayload>: Pattern<StashValue, M=Text<StashValue>> { }
 
 pub struct TextPattern<StashValue: NodePayload> {
     pattern: ::regex::Regex, 
@@ -132,6 +133,8 @@ impl<StashValue: NodePayload> Pattern<StashValue> for TextPattern<StashValue> {
         Ok(results)
     }
 }
+
+impl<StashValue: NodePayload> TerminalPattern<StashValue> for TextPattern<StashValue> {}
 
 pub struct TextNegLHPattern<StashValue: NodePayload> {
     pattern: ::regex::Regex,
@@ -205,6 +208,8 @@ impl<StashValue: NodePayload> Pattern<StashValue> for TextNegLHPattern<StashValu
         Ok(results)
     }
 }
+
+impl<StashValue: NodePayload> TerminalPattern<StashValue> for TextNegLHPattern<StashValue> {}
 
 pub type AnyNodePattern<V> = FilterNodePattern<V>;
 
