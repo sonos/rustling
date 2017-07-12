@@ -32,6 +32,14 @@ macro_rules! rustling_value {
             $( $varname ),*
         }
 
+        impl $kindname {
+            pub fn all() -> Vec<$kindname> {
+                vec![
+                    $( $kindname::$varname ),*
+                ]
+            }
+        }
+
         impl Value for $name {
             type Kind = $kindname;
             fn kind(&self) -> Self::Kind {

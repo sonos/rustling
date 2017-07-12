@@ -17,6 +17,14 @@ impl Range {
     pub fn byte_range(&self, string: &str) -> Range {
         Range(convert_byte_index(string, self.0), convert_byte_index(string, self.1))
     }
+
+    pub fn len(&self) -> usize {
+        self.1 - self.0
+    }
+    
+    pub fn is_disjoint(&self, other: &Self) -> bool {
+        self.0 >= other.1 || other.0 >= self.1
+    }
 }
 
 impl PartialOrd for Range {

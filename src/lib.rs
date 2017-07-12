@@ -6,8 +6,6 @@ extern crate rustling_ml;
 #[macro_use]
 extern crate serde_derive;
 
-use std::cmp::{PartialOrd, Ordering};
-
 pub use rustling_core::regex;
 pub use rustling_core::{AttemptFrom, AttemptInto, Sym, Node, ParsedNode, Range, RuleSet,
                         RuleSetBuilder, NodePayload, BoundariesChecker, StashIndexable, InnerStashIndexable};
@@ -73,56 +71,9 @@ pub struct ParserMatch<V> {
     pub latent: bool,
 }
 
-fn match_cmp<V>(a: &(ParsedNode<V>, ParserMatch<V>, Option<usize>),
-                b: &(ParsedNode<V>, ParserMatch<V>, Option<usize>))
-                -> Option<Ordering>
-    where V: Value
-{
-    if let Some(Ordering::Greater) = a.1.byte_range.partial_cmp(&b.1.byte_range) {
-        Some(Ordering::Greater)
-    } else if let Some(Ordering::Less) = a.1.byte_range.partial_cmp(&b.1.byte_range) {
-        Some(Ordering::Less)
-    } else if a.1.value.kind() == b.1.value.kind() {
-        if a.1.byte_range == b.1.byte_range {
-            a.1.probalog.partial_cmp(&b.1.probalog)
-        } else if a.1.byte_range.intersects(&b.1.byte_range) {
-            b.1.byte_range.1.partial_cmp(&a.1.byte_range.1)
-        } else {
-            a.1.byte_range.partial_cmp(&b.1.byte_range)
-        }
-    } else {
-        if (a.1.byte_range == b.1.byte_range || a.1.byte_range.intersects(&b.1.byte_range)) &&
-           (a.2.is_some() && b.2.is_some()) {
-            let prio = a.2.unwrap().partial_cmp(&b.2.unwrap()); // checked
-            if let Some(Ordering::Greater) = prio {
-                Some(Ordering::Greater)
-            } else if let Some(Ordering::Less) = prio {
-                Some(Ordering::Less)
-            } else if a.1.value.latent() && !b.1.value.latent() {
-                Some(Ordering::Less)
-            } else if !a.1.value.latent() && b.1.value.latent() {
-                Some(Ordering::Greater)
-            } else {
-                prio
-            }
-        } else {
-            None
-        }
-    }
-}
-
-fn filter_overlap<V>(mut best_match: Vec<ParserMatch<V>>) -> Vec<ParserMatch<V>> {
-    best_match.sort_by_key(|m| m.byte_range.0);
-    let mut result = vec![];
-    let mut last_match = 0;
-    for m in best_match {
-        let range = m.byte_range;
-        if range.0 >= last_match {
-            result.push(m);
-            last_match = range.1;
-        }
-    }
-    result
+pub trait MaxElementTagger<V: Value> {
+    type O;
+    fn tag(&self, candidates: Vec<(ParsedNode<V>, ParserMatch<V>)>) -> Vec<Candidate<V, Self::O>>;
 }
 
 pub trait FeatureExtractor<V: Value, Feat: Feature> {
@@ -131,14 +82,16 @@ pub trait FeatureExtractor<V: Value, Feat: Feature> {
 }
 
 #[derive(Debug)]
-pub struct Candidate<V:Value> {
+pub struct Candidate<V: Value, ResolvedV> {
     pub node: ParsedNode<V>,
-    pub match_: ParserMatch<V>,
-    pub prio: Option<usize>,
+    pub match_: ParserMatch<ResolvedV>,
     pub tagged: bool,
 }
 
-pub struct Parser<V: Value + StashIndexable, Feat: Feature, Extractor: FeatureExtractor<V, Feat>> {
+pub struct Parser<V, Feat, Extractor>  
+    where V: Value + StashIndexable,
+          Feat: Feature,
+          Extractor: FeatureExtractor<V, Feat> {
     rules: RuleSet<V>,
     model: Model<RuleId, Truth, Feat>,
     extractor: Extractor,
@@ -149,16 +102,12 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
           RuleId: ClassifierId,
           Feat: Feature,
           Extractor: FeatureExtractor<V, Feat>
-{
+    {
     pub fn new(rules: RuleSet<V>,
                model: Model<RuleId, Truth, Feat>,
                extractor: Extractor)
                -> Parser<V, Feat, Extractor> {
-        Parser {
-            rules: rules,
-            model: model,
-            extractor: extractor,
-        }
+        Parser { rules, model, extractor }
     }
 
     fn raw_candidates(&self, input: &str) -> RustlingResult<Vec<(ParsedNode<V>, ParserMatch<V>)>> {
@@ -180,51 +129,16 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
             .collect()
     }
 
-    pub fn candidates<S: Fn(&V) -> Option<usize>>
-        (&self,
-         input: &str,
-         dimension_prio: S)
-         -> RustlingResult<Vec<Candidate<V>>> {
-        let candidates = self.raw_candidates(input)?
+    pub fn candidates<Tagger: MaxElementTagger<V>>(&self, input: &str, tagger: Tagger) -> RustlingResult<Vec<Candidate<V, Tagger::O>>> {
+        Ok(tagger.tag(self.raw_candidates(input)?))
+    }
+
+    pub fn parse<Tagger: MaxElementTagger<V>>(&self, input: &str, tagger: Tagger) -> RustlingResult<Vec<ParserMatch<Tagger::O>>> {
+        Ok(self.candidates(input, tagger)?
             .into_iter()
-            .map(|(pn, pm)| {
-                     let p = dimension_prio(&pn.value);
-                     (pn, pm, p)
-                 })
-            .collect();
-        Ok(tag_maximal_elements(candidates, |a, b| match_cmp(a, b))
-               .into_iter()
-               .map(|((pn, pv, prio), tag)| Candidate { node: pn, match_: pv, prio, tagged: tag })
-               .collect())
-    }
-
-    pub fn parse(&self, input: &str, remove_overlap: bool) -> RustlingResult<Vec<ParserMatch<V>>> {
-        self.parse_with(input, |_| Some(0), remove_overlap)
-    }
-
-    pub fn parse_with_kind_order(&self,
-                                 input: &str,
-                                 order: &[V::Kind], 
-                                 remove_overlap:bool)
-                                 -> RustlingResult<Vec<ParserMatch<V>>> {
-        self.parse_with(input, |it| order.iter().rev().position(|k| *k == it.kind()), remove_overlap)
-    }
-
-    pub fn parse_with<S: Fn(&V) -> Option<usize>>(&self,
-                                                  input: &str,
-                                                  dimension_prio: S, 
-                                                  remove_overlap: bool)
-                                                  -> RustlingResult<Vec<ParserMatch<V>>> {
-        let best_match = self.candidates(input, dimension_prio)?
-               .into_iter()
-               .filter(|a| a.prio.is_some() && a.tagged)
-               .map(|a| a.match_)
-               .collect();
-        if remove_overlap {
-            Ok(filter_overlap(best_match))
-        } else {
-            Ok(best_match)
-        }
+            .filter(|c| c.tagged)
+            .map(|c| c.match_)
+            .collect())
     }
 
     pub fn resolve_sym(&self, sym:&Sym) -> Option<&str> {
@@ -232,73 +146,61 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
     }
 }
 
-// This is maximal elements in the POSet (Partial Ordered Set) sense: all
-// elements that have no "dominant" are a maximal element.
-fn tag_maximal_elements<I, CMP: Fn(&I, &I) -> Option<Ordering>>(values: Vec<I>,
-                                                                cmp: CMP)
-                                                                -> Vec<(I, bool)> {
-    let mut mask = vec!(false; values.len());
-    'a: for (ix, a) in values.iter().enumerate() {
-        for b in values.iter() {
-            if cmp(a, b) == Some(Ordering::Less) {
-                continue 'a;
-            }
-        }
-        mask[ix] = true;
-    }
-    values.into_iter().zip(mask.into_iter()).collect()
-}
-
 #[cfg(test)]
 mod tests {
-    use std::cmp::Ordering;
     use std::str::FromStr;
-
     use super::*;
 
-    fn cmp(a: &&str, b: &&str) -> Option<Ordering> {
-        if a == b {
-            Some(Ordering::Equal)
-        } else if a.starts_with(b) {
-            Some(Ordering::Greater)
-        } else if b.starts_with(a) {
-            Some(Ordering::Less)
-        } else {
-            None
-        }
-    }
+    // fn cmp(a: &&str, b: &&str) -> Option<Ordering> {
+    //     if a == b {
+    //         Some(Ordering::Equal)
+    //     } else if a.starts_with(b) {
+    //         Some(Ordering::Greater)
+    //     } else if b.starts_with(a) {
+    //         Some(Ordering::Less)
+    //     } else {
+    //         None
+    //     }
+    // }
 
-    #[test]
-    fn test_adhoc_order() {
-        assert_eq!(cmp(&"a", &"aa"), Some(Ordering::Less));
-        assert_eq!(cmp(&"b", &"aa"), None);
-        assert_eq!(cmp(&"ba", &"aa"), None);
-        assert_eq!(cmp(&"aa", &"aa"), Some(Ordering::Equal));
-        assert_eq!(cmp(&"aaa", &"aa"), Some(Ordering::Greater));
-        assert_eq!(cmp(&"ab", &"aa"), None);
-    }
+    // #[test]
+    // fn test_adhoc_order() {
+    //     assert_eq!(cmp(&"a", &"aa"), Some(Ordering::Less));
+    //     assert_eq!(cmp(&"b", &"aa"), None);
+    //     assert_eq!(cmp(&"ba", &"aa"), None);
+    //     assert_eq!(cmp(&"aa", &"aa"), Some(Ordering::Equal));
+    //     assert_eq!(cmp(&"aaa", &"aa"), Some(Ordering::Greater));
+    //     assert_eq!(cmp(&"ab", &"aa"), None);
+    // }
 
-    fn maximal_elements<I, CMP: Fn(&I, &I) -> Option<Ordering>>(values: Vec<I>,
-                                                                cmp: CMP)
-                                                                -> Vec<I> {
-        super::tag_maximal_elements(values, cmp)
-            .into_iter()
-            .filter(|&(_, m)| m)
-            .map(|(a, _)| a)
-            .collect()
-    }
+    // fn maximal_elements<I, CMP: Fn(&I, &I) -> Option<Ordering>>(values: Vec<I>,
+    //                                                             cmp: CMP)
+    //                                                             -> Vec<I> {
+    //     super::tag_maximal_elements(values, cmp)
+    //         .into_iter()
+    //         .filter(|&(_, m)| m)
+    //         .map(|(a, _)| a)
+    //         .collect()
+    // }
 
-    #[test]
-    fn max_elements() {
-        let values = vec!["ba", "baaar", "foo", "aa", "aaa", "a"];
-        assert_eq!(maximal_elements(values, cmp), vec!["baaar", "foo", "aaa"])
-    }
+    // #[test]
+    // fn max_elements() {
+    //     let values = vec!["ba", "baaar", "foo", "aa", "aaa", "a"];
+    //     assert_eq!(maximal_elements(values, cmp), vec!["baaar", "foo", "aaa"])
+    // }
 
     #[derive(Copy,Clone,Debug,PartialEq)]
     pub struct MyPayload;
 
     #[derive(Copy,Clone,Debug,PartialEq,Default)]
     pub struct Int(usize);
+
+    impl StashIndexable for Int {
+        type Index = MyValueKind;
+        fn index(&self) -> Self::Index {
+            MyValueKind::UI
+        }
+    }
 
     #[derive(Copy,Clone,Debug,PartialEq,Default)]
     pub struct F32(f32);
@@ -399,35 +301,35 @@ mod tests {
                    values);
     }
 
-    #[test]
-    fn test_filter_overlap() {
-        let matches = vec![
-            ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 1, probalog: 1.0, latent: true },
-            ParserMatch { byte_range: Range(1, 4), char_range: Range(1, 4), value: 2, probalog: 1.0, latent: true },
-        ];
+    // #[test]
+    // fn test_filter_overlap() {
+    //     let matches = vec![
+    //         ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 1, probalog: 1.0, latent: true },
+    //         ParserMatch { byte_range: Range(1, 4), char_range: Range(1, 4), value: 2, probalog: 1.0, latent: true },
+    //     ];
 
-        assert_eq!(vec![1], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
+    //     assert_eq!(vec![1], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
 
-        let matches = vec![
-            ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 1, probalog: 1.0, latent: true },
-            ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 2, probalog: 1.0, latent: true },
-        ];
+    //     let matches = vec![
+    //         ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 1, probalog: 1.0, latent: true },
+    //         ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 2, probalog: 1.0, latent: true },
+    //     ];
 
-        assert_eq!(vec![1], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
+    //     assert_eq!(vec![1], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
 
-        let matches = vec![
-            ParserMatch { byte_range: Range(3, 4), char_range: Range(3, 4), value: 2, probalog: 1.0, latent: true },
-            ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 1, probalog: 1.0, latent: true },
-        ];
+    //     let matches = vec![
+    //         ParserMatch { byte_range: Range(3, 4), char_range: Range(3, 4), value: 2, probalog: 1.0, latent: true },
+    //         ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 1, probalog: 1.0, latent: true },
+    //     ];
 
-        assert_eq!(vec![1, 2], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
+    //     assert_eq!(vec![1, 2], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
 
-        let matches = vec![
-            ParserMatch { byte_range: Range(3, 5), char_range: Range(3, 5), value: 1, probalog: 1.0, latent: true },
-            ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 2, probalog: 1.0, latent: true },
-            ParserMatch { byte_range: Range(2, 4), char_range: Range(2, 4), value: 3, probalog: 1.0, latent: true },
-        ];
+    //     let matches = vec![
+    //         ParserMatch { byte_range: Range(3, 5), char_range: Range(3, 5), value: 1, probalog: 1.0, latent: true },
+    //         ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 2, probalog: 1.0, latent: true },
+    //         ParserMatch { byte_range: Range(2, 4), char_range: Range(2, 4), value: 3, probalog: 1.0, latent: true },
+    //     ];
 
-        assert_eq!(vec![2, 1], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
-    }
+    //     assert_eq!(vec![2, 1], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
+    // }
 }
