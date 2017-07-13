@@ -129,11 +129,11 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
             .collect()
     }
 
-    pub fn candidates<Tagger: MaxElementTagger<V>>(&self, input: &str, tagger: Tagger) -> RustlingResult<Vec<Candidate<V, Tagger::O>>> {
+    pub fn candidates<Tagger: MaxElementTagger<V>>(&self, input: &str, tagger: &Tagger) -> RustlingResult<Vec<Candidate<V, Tagger::O>>> {
         Ok(tagger.tag(self.raw_candidates(input)?))
     }
 
-    pub fn parse<Tagger: MaxElementTagger<V>>(&self, input: &str, tagger: Tagger) -> RustlingResult<Vec<ParserMatch<Tagger::O>>> {
+    pub fn parse<Tagger: MaxElementTagger<V>>(&self, input: &str, tagger: &Tagger) -> RustlingResult<Vec<ParserMatch<Tagger::O>>> {
         Ok(self.candidates(input, tagger)?
             .into_iter()
             .filter(|c| c.tagged)
