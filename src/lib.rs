@@ -63,6 +63,10 @@ pub struct ParserMatch<V> {
     pub byte_range: Range,
     /// Range in char of matched area
     pub char_range: Range,
+    /// Parsing tree height
+    pub parsing_tree_height: usize,
+    /// Number of nodes in the parsing tree
+    pub parsing_tree_num_nodes: usize,
     /// Actual value built from the text.
     pub value: V,
     /// Logarithmic probability of the match after machine-learned model
@@ -121,6 +125,8 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
                     byte_range: p.root_node.byte_range,
                     char_range: p.root_node.byte_range.char_range(input),
                     value: p.value.clone().into(),
+                    parsing_tree_height: p.root_node.height(),
+                    parsing_tree_num_nodes: p.root_node.num_nodes(),
                     probalog: probalog,
                     latent: p.value.latent(),
                 };

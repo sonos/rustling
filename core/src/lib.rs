@@ -116,6 +116,15 @@ impl<Payload: Clone>  Node<Payload> {
                         children: children,
                     })
     }
+
+    pub fn height(&self) -> usize {
+        1 + self.children.iter().map(|c| c.height()).max().unwrap_or(0)
+    }
+
+    pub fn num_nodes(&self) -> usize {
+        let num_children: usize = self.children.iter().map(|c| c.num_nodes()).sum();
+        num_children + 1
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
