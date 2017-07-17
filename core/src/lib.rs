@@ -150,19 +150,19 @@ pub struct RuleSet<StashValue: NodePayload+StashIndexable> {
 
 impl<StashValue: NodePayload+StashIndexable> RuleSet<StashValue> {
 
-    fn apply_terminal_rules(&self, stash: &mut Stash<StashValue>, sentence: &str) -> CoreResult<()> {
+    fn apply_terminal_rules<'s>(&self, stash: &mut Stash<'s, StashValue>) -> CoreResult<()> {
         let mut produced_nodes = vec![];
         for rule in &self.terminal_rules {
-            produced_nodes.extend(rule.apply(stash, sentence)?);
+            produced_nodes.extend(rule.apply(stash)?);
         }
         stash.extend(produced_nodes);
         Ok(())
     }
 
-    fn apply_composition_rules(&self, stash: &mut Stash<StashValue>, sentence: &str) -> CoreResult<()> {
+    fn apply_composition_rules<'s>(&self, stash: &mut Stash<'s, StashValue>) -> CoreResult<()> {
         let mut produced_nodes = vec![];
         for rule in &self.composition_rules {
-            produced_nodes.extend(rule.apply(stash, sentence)?);
+            produced_nodes.extend(rule.apply(stash)?);
         }
         stash.extend(produced_nodes);
         Ok(())
@@ -170,14 +170,14 @@ impl<StashValue: NodePayload+StashIndexable> RuleSet<StashValue> {
 
     pub fn apply_all(&self, sentence: &str) -> CoreResult<Vec<ParsedNode<StashValue>>> {
         let iterations_max = 10;
-        let max_stash_size = 600;
-        let mut stash = Stash::default();
+        let max_stash_size = 1200;
+        let mut stash = Stash::new(sentence);
         
-        self.apply_terminal_rules(&mut stash, sentence)?;
+        self.apply_terminal_rules(&mut stash)?;
         let mut previous_stash_size = stash.len();
         
         for _ in 0..iterations_max {
-            self.apply_composition_rules(&mut stash, sentence)?;
+            self.apply_composition_rules(&mut stash)?;
             if stash.len() <= previous_stash_size || stash.len() > max_stash_size {
                 break;
             }

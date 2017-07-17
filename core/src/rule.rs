@@ -75,9 +75,7 @@ fn adjacent<A: Match, B: Match>(a: &A, b: &B, sentence: &str) -> bool {
 type ParsedNodes<StashValue> = SmallVec<[ParsedNode<StashValue>; 1]>;
 
 pub trait Rule<StashValue: NodePayload+StashIndexable>: Send + Sync {
-    fn apply(&self,
-             stash: &Stash<StashValue>,
-             sentence: &str)
+    fn apply<'s>(&self, stash: &Stash<'s, StashValue>)
              -> CoreResult<ParsedNodes<StashValue>>;
 }
 
@@ -101,11 +99,10 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + Send + Sync,
           PA: Pattern<StashValue>
 {
-    fn apply(&self,
-             stash: &Stash<StashValue>,
-             sentence: &str)
+    fn apply<'s>(&self,
+             stash: &Stash<'s, StashValue>)
              -> CoreResult<ParsedNodes<StashValue>> {
-        let matches = self.matches(&stash, sentence)?;
+        let matches = self.matches(&stash)?;
         matches
             .iter()
             .filter_map(|sub| {
@@ -116,7 +113,7 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
                                 old_node.root_node.children != nodes ||
                                 old_node.root_node.rule_sym != self.sym
                             }) {
-                    match (self.production)(&RuleProductionArg::new(sentence, sub)) {
+                    match (self.production)(&RuleProductionArg::new(stash.sentence, sub)) {
                         Ok(v) => {
                           let payload = v.extract_payload();
                             Some(Ok(ParsedNode::new(self.sym,
@@ -157,11 +154,10 @@ impl<PA, V, StashValue, F> Rule1<PA, V, StashValue, F>
         }
     }
 
-    fn matches(&self,
-               stash: &Stash<StashValue>,
-               sentence: &str)
+    fn matches<'s>(&self,
+               stash: &Stash<'s, StashValue>)
                -> CoreResult<PredicateMatches<PA::M>> {
-        self.pattern.predicate(stash, sentence)
+        self.pattern.find_all(stash)
     }
 }
 
@@ -188,11 +184,10 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
 {
-    fn apply(&self,
-             stash: &Stash<StashValue>,
-             sentence: &str)
+    fn apply<'s>(&self,
+             stash: &Stash<StashValue>)
              -> CoreResult<ParsedNodes<StashValue>> {
-        let matches = self.matches(&stash, sentence)?;
+        let matches = self.matches(&stash)?;
         matches.iter()
             .filter_map(|sub| {
                 let nodes = svec![sub.0.to_node(), sub.1.to_node()];
@@ -201,7 +196,7 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
                     old_node.root_node.rule_sym != self.sym
                 }) {
                     let byte_range = Range(sub.0.byte_range().0, sub.1.byte_range().1);
-                    match (self.production)(&RuleProductionArg::new(sentence, &sub.0), &RuleProductionArg::new(sentence, &sub.1)) {
+                    match (self.production)(&RuleProductionArg::new(stash.sentence, &sub.0), &RuleProductionArg::new(stash.sentence, &sub.1)) {
                         Ok(v) => {
                             let payload = v.extract_payload();
                             Some(Ok(ParsedNode::new(self.sym,
@@ -248,18 +243,17 @@ impl<PA, PB, V, StashValue, F> Rule2<PA, PB, V, StashValue, F>
         }
     }
 
-    fn matches(&self, stash: &Stash<StashValue>, sentence: &str) -> CoreResult<PredicateMatches<(PA::M, PB::M)>> {
+    fn matches<'s>(&self, stash: &Stash<'s, StashValue>) -> CoreResult<PredicateMatches<(PA::M, PB::M)>> {
         let mut result = PredicateMatches::default();
-        let matches_0 = self.pattern.0.predicate(stash, sentence)?;
+        let matches_0 = self.pattern.0.find_all(stash)?;
         if matches_0.is_empty() {
             return Ok(result)
         }
-        let matches_1 = self.pattern.1.predicate(stash, sentence)?;
         for m0 in matches_0.iter() {
+            let matches_1 = self.pattern.1
+                .nearest_neighbors_from(stash, m0.byte_range().1)?;
             for m1 in matches_1.iter() {
-                if adjacent(m0, m1, sentence) {
-                    result.push((m0.clone(), m1.clone()))
-                }
+                result.push((m0.clone(), m1.clone()));
             }
         }
         Ok(result)
@@ -295,11 +289,10 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, Sta
           PB: Pattern<StashValue>,
           PC: Pattern<StashValue>
 {
-    fn apply(&self,
-             stash: &Stash<StashValue>,
-             sentence: &str)
+    fn apply<'s>(&self,
+             stash: &Stash<'s, StashValue>)
              -> CoreResult<ParsedNodes<StashValue>> {
-        let matches = self.matches(&stash, sentence)?;
+        let matches = self.matches(&stash)?;
         matches
             .iter()
             .filter_map(|sub| {
@@ -311,9 +304,9 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, Sta
                                 old_node.root_node.rule_sym != self.sym
                             }) {
                     let byte_range = Range(sub.0.byte_range().0, sub.2.byte_range().1);
-                    match (self.production)(&RuleProductionArg::new(sentence, &sub.0),
-                                            &RuleProductionArg::new(sentence, &sub.1),
-                                            &RuleProductionArg::new(sentence, &sub.2)) {
+                    match (self.production)(&RuleProductionArg::new(stash.sentence, &sub.0),
+                                            &RuleProductionArg::new(stash.sentence, &sub.1),
+                                            &RuleProductionArg::new(stash.sentence, &sub.2)) {
                         Ok(v) => {
                           let payload = v.extract_payload();
                           Some(Ok(ParsedNode::new(
@@ -355,33 +348,21 @@ impl<PA, PB, PC, V, StashValue, F> Rule3<PA, PB, PC, V, StashValue, F>
         }
     }
 
-    fn matches(&self,
-               stash: &Stash<StashValue>,
-               sentence: &str)
+    fn matches<'s>(&self,
+               stash: &Stash<'s, StashValue>)
                -> CoreResult<PredicateMatches<(PA::M, PB::M, PC::M)>> {
         let mut result = PredicateMatches::default();
-        let matches_0 = self.pattern.0.predicate(stash, sentence)?;
-        if matches_0.is_empty() {
-            return Ok(result);
-        }
-        let matches_1 = self.pattern.1.predicate(stash, sentence)?;
-        if matches_1.is_empty() {
-            return Ok(result);
-        }
-        let matches_2 = self.pattern.2.predicate(stash, sentence)?;
-        if matches_2.is_empty() {
-            return Ok(result);
-        }
+        let matches_0 = self.pattern.0.find_all(stash)?;
         for m0 in matches_0.iter() {
-            for m1 in matches_1.iter() {
-                if adjacent(m0, m1, sentence) {
-                    for m2 in matches_2.iter() {
-                        if adjacent(m1, m2, sentence) {
-                            result.push((m0.clone(), m1.clone(), m2.clone()))
-                        }
-                    }
-                }
+          let matches_1 = self.pattern.1
+              .nearest_neighbors_from(stash, m0.byte_range().1)?;
+          for m1 in matches_1.iter() {
+            let matches_2 = self.pattern.2
+              .nearest_neighbors_from(stash, m1.byte_range().1)?;
+            for m2 in matches_2.iter() {
+                result.push((m0.clone(), m1.clone(), m2.clone()));
             }
+          }
         }
         Ok(result)
     }
@@ -420,11 +401,9 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule<StashValue> for Rule4<PA, PB, PC, PD
           PC: Pattern<StashValue>,
           PD: Pattern<StashValue>,
 {
-    fn apply(&self,
-             stash: &Stash<StashValue>,
-             sentence: &str)
+    fn apply<'s>(&self, stash: &Stash<'s, StashValue>)
              -> CoreResult<ParsedNodes<StashValue>> {
-        let matches = self.matches(&stash, sentence)?;
+        let matches = self.matches(&stash)?;
         matches
             .iter()
             .filter_map(|sub| {
@@ -436,10 +415,10 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule<StashValue> for Rule4<PA, PB, PC, PD
                                 old_node.root_node.rule_sym != self.sym
                             }) {
                     let byte_range = Range(sub.0.byte_range().0, sub.3.byte_range().1);
-                    match (self.production)(&RuleProductionArg::new(sentence, &sub.0),
-                                            &RuleProductionArg::new(sentence, &sub.1),
-                                            &RuleProductionArg::new(sentence, &sub.2),
-                                            &RuleProductionArg::new(sentence, &sub.3)) {
+                    match (self.production)(&RuleProductionArg::new(stash.sentence, &sub.0),
+                                            &RuleProductionArg::new(stash.sentence, &sub.1),
+                                            &RuleProductionArg::new(stash.sentence, &sub.2),
+                                            &RuleProductionArg::new(stash.sentence, &sub.3)) {
                         Ok(v) =>  {
                           let payload = v.extract_payload();
                           Some(Ok(ParsedNode::new(
@@ -483,34 +462,32 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule4<PA, PB, PC, PD, V, StashValue, F>
         }
     }
 
-    fn matches(&self,
-               stash: &Stash<StashValue>,
-               sentence: &str)
+    fn matches<'s>(&self, stash: &Stash<'s, StashValue>)
                -> CoreResult<PredicateMatches<(PA::M, PB::M, PC::M, PD::M)>> {
         let mut result = PredicateMatches::default();
-        let matches_0 = self.pattern.0.predicate(stash, sentence)?;
+        let matches_0 = self.pattern.0.find_all(stash)?;
         if matches_0.is_empty() {
             return Ok(result);
         }
-        let matches_1 = self.pattern.1.predicate(stash, sentence)?;
+        let matches_1 = self.pattern.1.find_all(stash)?;
         if matches_1.is_empty() {
             return Ok(result);
         }
-        let matches_2 = self.pattern.2.predicate(stash, sentence)?;
+        let matches_2 = self.pattern.2.find_all(stash)?;
         if matches_2.is_empty() {
             return Ok(result);
         }
-        let matches_3 = self.pattern.3.predicate(stash, sentence)?;
+        let matches_3 = self.pattern.3.find_all(stash)?;
         if matches_3.is_empty() {
             return Ok(result);
         }
         for m0 in matches_0.iter() {
             for m1 in matches_1.iter() {
-                if adjacent(m0, m1, sentence) {
+                if adjacent(m0, m1, stash.sentence) {
                     for m2 in matches_2.iter() {
-                        if adjacent(m1, m2, sentence) {
+                        if adjacent(m1, m2, stash.sentence) {
                             for m3 in matches_3.iter() {
-                                if adjacent(m2, m3, sentence) {
+                                if adjacent(m2, m3, stash.sentence) {
                                     result.push((m0.clone(), m1.clone(), m2.clone(), m3.clone()))
                                 }
                             }
@@ -559,11 +536,10 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule<StashValue> for Rule5<PA, PB, PC
           PD: Pattern<StashValue>,
           PE: Pattern<StashValue>,
 {
-    fn apply(&self,
-             stash: &Stash<StashValue>,
-             sentence: &str)
+    fn apply<'s>(&self,
+             stash: &Stash<'s, StashValue>)
              -> CoreResult<ParsedNodes<StashValue>> {
-        let matches = self.matches(&stash, sentence)?;
+        let matches = self.matches(&stash)?;
         matches
             .iter()
             .filter_map(|sub| {
@@ -575,11 +551,11 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule<StashValue> for Rule5<PA, PB, PC
                                 old_node.root_node.rule_sym != self.sym
                             }) {
                     let byte_range = Range(sub.0.byte_range().0, sub.4.byte_range().1);
-                    match (self.production)(&RuleProductionArg::new(sentence, &sub.0),
-                                            &RuleProductionArg::new(sentence, &sub.1),
-                                            &RuleProductionArg::new(sentence, &sub.2),
-                                            &RuleProductionArg::new(sentence, &sub.3),
-                                            &RuleProductionArg::new(sentence, &sub.4)) {
+                    match (self.production)(&RuleProductionArg::new(stash.sentence, &sub.0),
+                                            &RuleProductionArg::new(stash.sentence, &sub.1),
+                                            &RuleProductionArg::new(stash.sentence, &sub.2),
+                                            &RuleProductionArg::new(stash.sentence, &sub.3),
+                                            &RuleProductionArg::new(stash.sentence, &sub.4)) {
                         Ok(v) => {
                           let payload = v.extract_payload();
                           Some(Ok(ParsedNode::new(
@@ -625,40 +601,39 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule5<PA, PB, PC, PD, PE, V, StashVal
         }
     }
 
-    fn matches(&self,
-               stash: &Stash<StashValue>,
-               sentence: &str)
+    fn matches<'s>(&self,
+               stash: &Stash<'s, StashValue>)
                -> CoreResult<PredicateMatches<(PA::M, PB::M, PC::M, PD::M, PE::M)>> {
         let mut result = PredicateMatches::default();
-        let matches_0 = self.pattern.0.predicate(stash, sentence)?;
+        let matches_0 = self.pattern.0.find_all(stash)?;
         if matches_0.is_empty() {
             return Ok(result);
         }
-        let matches_1 = self.pattern.1.predicate(stash, sentence)?;
+        let matches_1 = self.pattern.1.find_all(stash)?;
         if matches_1.is_empty() {
             return Ok(result);
         }
-        let matches_2 = self.pattern.2.predicate(stash, sentence)?;
+        let matches_2 = self.pattern.2.find_all(stash)?;
         if matches_2.is_empty() {
             return Ok(result);
         }
-        let matches_3 = self.pattern.3.predicate(stash, sentence)?;
+        let matches_3 = self.pattern.3.find_all(stash)?;
         if matches_3.is_empty() {
             return Ok(result);
         }
-        let matches_4 = self.pattern.4.predicate(stash, sentence)?;
+        let matches_4 = self.pattern.4.find_all(stash)?;
         if matches_4.is_empty() {
             return Ok(result);
         }
         for m0 in matches_0.iter() {
             for m1 in matches_1.iter() {
-                if adjacent(m0, m1, sentence) {
+                if adjacent(m0, m1, stash.sentence) {
                     for m2 in matches_2.iter() {
-                        if adjacent(m1, m2, sentence) {
+                        if adjacent(m1, m2, stash.sentence) {
                             for m3 in matches_3.iter() {
-                                if adjacent(m2, m3, sentence) {
+                                if adjacent(m2, m3, stash.sentence) {
                                     for m4 in matches_4.iter() {
-                                        if adjacent(m3, m4, sentence) {
+                                        if adjacent(m3, m4, stash.sentence) {
                                             result.push((m0.clone(), m1.clone(), m2.clone(), m3.clone(), m4.clone()))
                                         }
                                     }
@@ -714,11 +689,10 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule<StashValue> for Rule6<PA, PB
           PE: Pattern<StashValue>,
           PF: Pattern<StashValue>,
 {
-    fn apply(&self,
-             stash: &Stash<StashValue>,
-             sentence: &str)
+    fn apply<'s>(&self,
+             stash: &Stash<'s, StashValue>)
              -> CoreResult<ParsedNodes<StashValue>> {
-        let matches = self.matches(&stash, sentence)?;
+        let matches = self.matches(&stash)?;
         matches
             .iter()
             .filter_map(|sub| {
@@ -730,12 +704,12 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule<StashValue> for Rule6<PA, PB
                                 old_node.root_node.rule_sym != self.sym
                             }) {
                     let byte_range = Range(sub.0.byte_range().0, sub.5.byte_range().1);
-                    match (self.production)(&RuleProductionArg::new(sentence, &sub.0),
-                                            &RuleProductionArg::new(sentence, &sub.1),
-                                            &RuleProductionArg::new(sentence, &sub.2),
-                                            &RuleProductionArg::new(sentence, &sub.3),
-                                            &RuleProductionArg::new(sentence, &sub.4),
-                                            &RuleProductionArg::new(sentence, &sub.5)) {
+                    match (self.production)(&RuleProductionArg::new(stash.sentence, &sub.0),
+                                            &RuleProductionArg::new(stash.sentence, &sub.1),
+                                            &RuleProductionArg::new(stash.sentence, &sub.2),
+                                            &RuleProductionArg::new(stash.sentence, &sub.3),
+                                            &RuleProductionArg::new(stash.sentence, &sub.4),
+                                            &RuleProductionArg::new(stash.sentence, &sub.5)) {
                         Ok(v) => { 
                           let payload = v.extract_payload();
                           Some(Ok(ParsedNode::new(self.sym, v.clone().into(), byte_range, payload, nodes)))
@@ -777,46 +751,45 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule6<PA, PB, PC, PD, PE, PF, V, 
         }
     }
 
-    fn matches(&self,
-               stash: &Stash<StashValue>,
-               sentence: &str)
+    fn matches<'s>(&self,
+               stash: &Stash<'s, StashValue>)
                -> CoreResult<PredicateMatches<(PA::M, PB::M, PC::M, PD::M, PE::M, PF::M)>> {
         let mut result = PredicateMatches::default();
-        let matches_0 = self.pattern.0.predicate(stash, sentence)?;
+        let matches_0 = self.pattern.0.find_all(stash)?;
         if matches_0.is_empty() {
             return Ok(result);
         }
-        let matches_1 = self.pattern.1.predicate(stash, sentence)?;
+        let matches_1 = self.pattern.1.find_all(stash)?;
         if matches_1.is_empty() {
             return Ok(result);
         }
-        let matches_2 = self.pattern.2.predicate(stash, sentence)?;
+        let matches_2 = self.pattern.2.find_all(stash)?;
         if matches_2.is_empty() {
             return Ok(result);
         }
-        let matches_3 = self.pattern.3.predicate(stash, sentence)?;
+        let matches_3 = self.pattern.3.find_all(stash)?;
         if matches_3.is_empty() {
             return Ok(result);
         }
-        let matches_4 = self.pattern.4.predicate(stash, sentence)?;
+        let matches_4 = self.pattern.4.find_all(stash)?;
         if matches_4.is_empty() {
             return Ok(result);
         }
-        let matches_5 = self.pattern.5.predicate(stash, sentence)?;
+        let matches_5 = self.pattern.5.find_all(stash)?;
         if matches_5.is_empty() {
             return Ok(result);
         }
         for m0 in matches_0.iter() {
             for m1 in matches_1.iter() {
-                if adjacent(m0, m1, sentence) {
+                if adjacent(m0, m1, stash.sentence) {
                     for m2 in matches_2.iter() {
-                        if adjacent(m1, m2, sentence) {
+                        if adjacent(m1, m2, stash.sentence) {
                             for m3 in matches_3.iter() {
-                                if adjacent(m2, m3, sentence) {
+                                if adjacent(m2, m3, stash.sentence) {
                                     for m4 in matches_4.iter() {
-                                        if adjacent(m3, m4, sentence) {
+                                        if adjacent(m3, m4, stash.sentence) {
                                             for m5 in matches_5.iter() {
-                                              if adjacent(m4, m5, sentence) {
+                                              if adjacent(m4, m5, stash.sentence) {
                                                   result.push((m0.clone(), m1.clone(), m2.clone(), m3.clone(), m4.clone(), m5.clone()))
                                               }
                                             }
@@ -886,6 +859,13 @@ mod tests {
       }
     }
 
+    impl InnerStashIndexable for usize {
+      type Index = usize;
+      fn index() -> usize {
+          0
+      }
+    } 
+
     macro_rules! reg {
         ($st:expr, $typ:ty, $pattern:expr) => ( $crate::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $st.sym($pattern), BoundariesChecker::SperatedAlphanumericWord) )
     }
@@ -896,10 +876,10 @@ mod tests {
         let ten = st.sym("ten");
         let rule = Rule1::new(ten, (reg!(st, usize, "ten")), |_| Ok(10usize));
         assert_eq!(vec![Text::new(svec![Range(8, 11)], Range(8, 11), ten)],
-                   rule.matches(&vec![], "foobar: ten").unwrap());
+                   rule.matches(&Stash::default(), "foobar: ten").unwrap());
         assert_eq!(vec![Text::new(svec![Range(8, 11)], Range(8, 11), ten),
                         Text::new(svec![Range(12, 15)], Range(12, 15), ten)],
-                   rule.matches(&vec![], "foobar: ten ten").unwrap());
+                   rule.matches(&Stash::default(), "foobar: ten ten").unwrap());
         assert_eq!(svec4![ParsedNode::new(ten,
                                           10usize,
                                           Range(8, 11),
@@ -910,7 +890,7 @@ mod tests {
                                           Range(12, 15),
                                           Some(10usize),
                                           svec![Node::new(ten, Range(12, 15), None, svec![])])],
-                   rule.apply(&vec![], "foobar: ten ten").unwrap())
+                   rule.apply(&Stash::default(), "foobar: ten ten").unwrap())
     }
 
     #[test]
@@ -923,16 +903,18 @@ mod tests {
                                                                              *integer == 10
                                                                          })])),
                        |a, b| Ok(a.value() + b.value()));
-        let stash: Stash<usize> = vec![ParsedNode::new(st.sym("ten"), 10, Range(8, 11), None, svec![]),
-                                       ParsedNode::new(st.sym("ten"), 10, Range(12, 15), None, svec![])];
-        assert_eq!(vec![(stash[0].clone(), stash[1].clone())],
+        let mut stash  = Stash::default();
+        stash.push(ParsedNode::new(st.sym("ten"), 10, Range(8, 11), None, svec![]));
+        stash.push(ParsedNode::new(st.sym("ten"), 10, Range(12, 15), None, svec![]));
+
+        assert_eq!(vec![(stash.values()[0].clone(), stash.values()[1].clone())],
                    rule_consec.matches(&stash, "foobar: ten ten").unwrap());
         assert_eq!(svec4![ParsedNode::new(st.sym("2 consecutive ints"),
                                           20,
                                           Range(8, 15),
                                           Some(20),
-                                          svec![stash[0].root_node.clone(),
-                                                stash[1].root_node.clone()])],
+                                          svec![stash.values()[0].root_node.clone(),
+                                                stash.values()[1].root_node.clone()])],
                    rule_consec.apply(&stash, "foobar: ten ten").unwrap());
     }
 

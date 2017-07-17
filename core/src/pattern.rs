@@ -7,6 +7,7 @@ use errors::*;
 use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash, StashIndexable, InnerStashIndexable, NodePayload};
 use helpers::BoundariesChecker;
 use range::Range;
+use regex::Captures;
 
 pub trait Match: Clone {
     type NV: Clone;
@@ -64,9 +65,9 @@ pub type PredicateMatches<M> = Vec<M>;
 
 pub trait Pattern<StashValue: NodePayload+StashIndexable>: Send + Sync {
     type M: Match<NV=StashValue::Payload>;
-    fn predicate(&self,
-                 stash: &Stash<StashValue>,
-                 sentence: &str)
+    fn find_all<'s>(&self, stash: &Stash<'s, StashValue>)
+                 -> CoreResult<PredicateMatches<Self::M>>;
+    fn nearest_neighbors_from<'s>(&self, stash: &Stash<'s, StashValue>, position: usize)
                  -> CoreResult<PredicateMatches<Self::M>>;
 }
 
@@ -92,45 +93,65 @@ impl<StashValue: NodePayload+StashIndexable> TextPattern<StashValue> {
 
 impl<StashValue: NodePayload+StashIndexable> Pattern<StashValue> for TextPattern<StashValue> {
     type M = Text<StashValue>;
-    fn predicate(&self,
-                 _stash: &Stash<StashValue>,
-                 sentence: &str)
+    fn find_all<'s>(&self, stash: &Stash<'s, StashValue>)
                  -> CoreResult<PredicateMatches<Self::M>> {
         let mut results = PredicateMatches::new();
-        for cap in self.pattern.captures_iter(&sentence) {
-            let full = cap.get(0)
-                .ok_or_else(|| {
-                                format!("No capture for regexp {} in rule {:?} for sentence: {}",
-                                        self.pattern,
-                                        self.pattern_sym,
-                                        sentence)
-                            })?;
-            let full_range = Range(full.start(), full.end());
-            if !self.boundaries_checker.check(sentence, full_range) {
-                continue;
+        for cap in self.pattern.captures_iter(stash.sentence) {
+            match self.format_match(&cap, stash.sentence)? {
+                Some(text) => results.push(text),
+                None => continue,
             }
-            let mut groups = SmallVec::new();
-            for (ix, group) in cap.iter().enumerate() {
-                let group = group.ok_or_else(|| {
-                            format!("No capture for regexp {} in rule {:?}, group number {} in \
-                                     capture: {}",
+        }
+        Ok(results)
+    }
+
+    fn nearest_neighbors_from<'s>(&self,
+                 stash: &Stash<'s, StashValue>, position: usize)
+                 -> CoreResult<PredicateMatches<Self::M>> {
+        match self.pattern.captures(&stash.sentence[position..]) {
+            Some(cap) => Ok(self.format_match(&cap, stash.sentence)?
+                .map(|m| vec![m])
+                .unwrap_or(vec![])), 
+            None => Ok(vec![]),
+        }
+    }
+}
+
+impl<StashValue: NodePayload+StashIndexable> TextPattern<StashValue> {
+    fn format_match<'t>(&self, capture: &Captures<'t>, full_sentence: &str) -> CoreResult<Option<Text<StashValue>>> {
+        let full = capture.get(0)
+            .ok_or_else(|| {
+                            format!("No capture for regexp {} in rule {:?} for sentence: {}",
                                     self.pattern,
                                     self.pattern_sym,
-                                    ix,
-                                    full.as_str())
+                                    full_sentence)
                         })?;
-                let range = Range(group.start(), group.end());
-                groups.push(range);
-            }
-            results.push(Text {
-                             groups: groups,
-                             byte_range: full_range,
-                             pattern_sym: self.pattern_sym,
-                             _phantom: SendSyncPhantomData::new()
-                         })
+        let full_range = Range(full.start(), full.end());
+        if !self.boundaries_checker.check(full_sentence, full_range) {
+            return Ok(None);
         }
 
-        Ok(results)
+        let mut groups = SmallVec::new();
+        
+        for (ix, group) in capture.iter().enumerate() {
+            let group = group.ok_or_else(|| {
+                        format!("No capture for regexp {} in rule {:?}, group number {} in \
+                                 capture: {}",
+                                self.pattern,
+                                self.pattern_sym,
+                                ix,
+                                full.as_str())
+                    })?;
+            let range = Range(group.start(), group.end());
+            groups.push(range);
+        }
+
+        Ok(Some(Text {
+            groups: groups,
+            byte_range: full_range,
+            pattern_sym: self.pattern_sym,
+            _phantom: SendSyncPhantomData::new()
+        }))
     }
 }
 
@@ -162,50 +183,68 @@ impl<StashValue: NodePayload+StashIndexable> TextNegLHPattern<StashValue> {
 
 impl<StashValue: NodePayload+StashIndexable> Pattern<StashValue> for TextNegLHPattern<StashValue> {
     type M = Text<StashValue>;
-    fn predicate(&self,
-                 _stash: &Stash<StashValue>,
-                 sentence: &str)
+    fn find_all<'s>(&self,
+                 stash: &Stash<'s, StashValue>)
                  -> CoreResult<PredicateMatches<Text<StashValue>>> {
         let mut results = PredicateMatches::new();
-        for cap in self.pattern.captures_iter(&sentence) {
-            let full = cap.get(0)
-                .ok_or_else(|| {
-                                format!("No capture for regexp {} in rule {:?} for sentence: {}",
-                                        self.pattern,
-                                        self.pattern_sym,
-                                        sentence)
-                            })?;
-            let full_range = Range(full.start(), full.end());
-            if !self.boundaries_checker.check(sentence, full_range) {
-                continue;
+        for cap in self.pattern.captures_iter(stash.sentence) {
+            match self.format_match(&cap, stash.sentence)? {
+                Some(text) => results.push(text),
+                None => continue,
             }
-            if let Some(mat) = self.neg_look_ahead.find(&sentence[full.end()..]) {
-                if mat.start() == 0 {
-                    continue;
-                }
-            }
-            let mut groups = SmallVec::new();
-            for (ix, group) in cap.iter().enumerate() {
-                let group = group.ok_or_else(|| {
-                            format!("No capture for regexp {} in rule {:?}, group number {} in \
-                                     capture: {}",
+        }
+        Ok(results)
+    }
+
+    fn nearest_neighbors_from<'s>(&self,
+                 stash: &Stash<'s, StashValue>, position: usize)
+                 -> CoreResult<PredicateMatches<Text<StashValue>>> {
+        match self.pattern.captures(&stash.sentence[position..]) {
+            Some(cap) => Ok(self.format_match(&cap, stash.sentence)?
+                .map(|m| vec![m])
+                .unwrap_or(vec![])), 
+            None => Ok(vec![]),
+        }
+    }
+}
+
+impl<StashValue: NodePayload+StashIndexable> TextNegLHPattern<StashValue> {
+    fn format_match<'t>(&self, capture: &Captures<'t>, full_sentence: &str) -> CoreResult<Option<Text<StashValue>>> {
+        let full = capture.get(0)
+            .ok_or_else(|| {
+                            format!("No capture for regexp {} in rule {:?} for sentence: {}",
                                     self.pattern,
                                     self.pattern_sym,
-                                    ix,
-                                    full.as_str())
+                                    full_sentence)
                         })?;
-                let range = Range(group.start(), group.end());
-                groups.push(range);
-            }
-            results.push(Text {
-                             groups: groups,
-                             byte_range: full_range,
-                             pattern_sym: self.pattern_sym,
-                             _phantom: SendSyncPhantomData::new(),
-                         })
+        let full_range = Range(full.start(), full.end());
+        if !self.boundaries_checker.check(full_sentence, full_range) {
+            return Ok(None);
         }
-
-        Ok(results)
+        if let Some(mat) = self.neg_look_ahead.find(&full_sentence[full.end()..]) {
+            if mat.start() == 0 {
+                return Ok(None);
+            }
+        }
+        let mut groups = SmallVec::new();
+        for (ix, group) in capture.iter().enumerate() {
+            let group = group.ok_or_else(|| {
+                        format!("No capture for regexp {} in rule {:?}, group number {} in \
+                                 capture: {}",
+                                self.pattern,
+                                self.pattern_sym,
+                                ix,
+                                full.as_str())
+                    })?;
+            let range = Range(group.start(), group.end());
+            groups.push(range);
+        }
+        Ok(Some(Text {
+                         groups: groups,
+                         byte_range: full_range,
+                         pattern_sym: self.pattern_sym,
+                         _phantom: SendSyncPhantomData::new(),
+                     }))
     }
 }
 
@@ -245,29 +284,18 @@ impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
           V: NodePayload<Payload=StashValue::Payload> + InnerStashIndexable<Index=StashValue::Index> + AttemptFrom<StashValue>,
 {
     type M = ParsedNode<V>;
-    fn predicate(&self,
-                 stash: &Stash<StashValue>,
-                 _sentence: &str)
+    fn find_all<'s>(&self, stash: &Stash<'s, StashValue>)
                  -> CoreResult<PredicateMatches<ParsedNode<V>>> {
-        Ok(stash.filter(|v|{
+        Ok(stash.find_all(|v|{
             self.predicates.iter().all(|predicate| (predicate)(&v))
         }))
-        // Ok(stash
-        //        .iter()
-        //        .filter_map(|it| if let Some(v) = V::attempt_from(it.value.clone()) {
-        //                        if self.predicates.iter().all(|predicate| (predicate)(&v)) {
-        //                            Some(ParsedNode::new(it.root_node.rule_sym,
-        //                                                 v,
-        //                                                 it.byte_range(),
-        //                                                 it.root_node.payload.clone(),
-        //                                                 it.root_node.children.clone()))
-        //                        } else {
-        //                            None
-        //                        }
-        //                    } else {
-        //                        None
-        //                    })
-        //        .collect())
+    }
+
+    fn nearest_neighbors_from<'s>(&self, stash: &Stash<'s, StashValue>, position: usize)
+                 -> CoreResult<PredicateMatches<ParsedNode<V>>> {
+        Ok(stash.nearest_neighbors_from(position, |v|{
+            self.predicates.iter().all(|predicate| (predicate)(&v))
+        }))
     }
 }
 
@@ -286,7 +314,7 @@ mod tests {
 
     #[test]
     fn test_regex_separated_string() {
-        let stash = vec![];
+        let stash = Stash::default();
         let checker = BoundariesChecker::Detailed;
         let pat: TextPattern<usize> = TextPattern::new(::regex::Regex::new("a+").unwrap(), Sym(0), checker);
         assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
