@@ -314,24 +314,23 @@ mod tests {
 
     #[test]
     fn test_regex_separated_string() {
-        let stash = Stash::default();
         let checker = BoundariesChecker::Detailed;
         let pat: TextPattern<usize> = TextPattern::new(::regex::Regex::new("a+").unwrap(), Sym(0), checker);
         assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
-                   pat.predicate(&stash, "aaa").unwrap());
+                   pat.find_all(&Stash::new("aaa")).unwrap());
         assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
-                   pat.predicate(&stash, "aaa bbb").unwrap());
+                   pat.find_all(&Stash::new("aaa bbb")).unwrap());
         assert_eq!(vec![Text::new(svec4!(Range(4, 7)), Range(4, 7), Sym(0))],
-                   pat.predicate(&stash, "bbb aaa").unwrap());
-        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "baaa").unwrap());
-        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "aaab").unwrap());
-        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "aaaé").unwrap());
-        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "éaaa").unwrap());
+                   pat.find_all(&Stash::new("bbb aaa")).unwrap());
+        assert_eq!(Vec::<Text<usize>>::new(), pat.find_all(&Stash::new("baaa")).unwrap());
+        assert_eq!(Vec::<Text<usize>>::new(), pat.find_all(&Stash::new("aaab")).unwrap());
+        assert_eq!(Vec::<Text<usize>>::new(), pat.find_all(&Stash::new("aaaé")).unwrap());
+        assert_eq!(Vec::<Text<usize>>::new(), pat.find_all(&Stash::new("éaaa")).unwrap());
         assert_eq!(vec![Text::new(svec4!(Range(1, 4)), Range(1, 4), Sym(0))],
-                   pat.predicate(&stash, "1aaa").unwrap());
+                   pat.find_all(&Stash::new("1aaa")).unwrap());
         assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
-                   pat.predicate(&stash, "aaa1").unwrap());
+                   pat.find_all(&Stash::new("aaa1")).unwrap());
         assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
-                   pat.predicate(&stash, "aaa-toto").unwrap());
+                   pat.find_all(&Stash::new("aaa-toto")).unwrap());
     }
 }

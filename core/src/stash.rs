@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::slice::Iter;
 use std::vec::IntoIter;
 use pattern::Match;
+use range::Range;
 
 pub trait StashIndexable {
     type Index: Hash+Eq;
@@ -15,11 +16,19 @@ pub trait InnerStashIndexable {
     fn index() -> Self::Index;
 }
 
-fn adjacent<A: Match, B: Match>(a: &A, b: &B, sentence: &str) -> bool {
-    a.byte_range().1 <= b.byte_range().0 &&
-    sentence[a.byte_range().1..b.byte_range().0]
+fn adjacent(a: &Range, b: &Range, sentence: &str) -> bool {
+    a.1 <= b.0 &&
+    sentence[a.1..b.0]
         .chars()
         .all(|c| c.is_whitespace())
+}
+
+fn search_range(start: usize, sentence: &str) -> Range {
+    let end = sentence[start..]
+        .chars()
+        .position(|c| !c.is_whitespace())
+        .unwrap_or(sentence.len());
+    Range(start, end)
 }
 
 #[derive(Copy,Clone,Debug,PartialEq)]
@@ -78,9 +87,21 @@ impl<'s, S: StashIndexable + NodePayload> Stash<'s, S> {
     {
         self.index.get(&V::index())
             .map(move |nodes| {
-                nodes.iter().filter_map(move |node_info| {
-                    self.format_node(node_info, &predicate)
-                }).collect()
+                let search_range = search_range(position, self.sentence);
+
+                let slice_start = nodes
+                    .binary_search_by(|info| info.sentence_position.cmp(&search_range.0))
+                    .unwrap_or_else(|e| e);
+                let slice_end = nodes
+                    .binary_search_by(|info| info.sentence_position.cmp(&search_range.1))
+                    .unwrap_or_else(|e| e);
+
+                nodes.iter()
+                    .enumerate()
+                    .skip_while(|node_with_idx| node_with_idx.0 < slice_start)
+                    .take_while(|node_with_idx| node_with_idx.0 < slice_end)
+                    .filter_map(|node_with_idx| self.format_node(node_with_idx.1, &predicate))
+                    .collect()
             })
             .unwrap_or(vec![])
     }
@@ -250,7 +271,7 @@ mod tests {
 
     #[test]
     fn test_node_indexing() {
-        let mut stash = Stash::default();
+        let mut stash = Stash::new("a a a a a a a a a");
         let nodes = vec![
             build_parse_node(Range(1, 3), MyValue::a(1)),
             build_parse_node(Range(4, 10), MyValue::b(2)),
@@ -274,8 +295,8 @@ mod tests {
     }
 
     #[test]
-    fn test_filter_predicate() {
-        let mut stash = Stash::default();
+    fn test_find_all() {
+        let mut stash = Stash::new("a a a a a a a a a");
         let nodes = vec![
             build_parse_node(Range(1, 3), MyValue::a(1)),
             build_parse_node(Range(4, 10), MyValue::b(2)),
@@ -285,6 +306,6 @@ mod tests {
         ];
         stash.extend(nodes);
 
-        let nodes = stash.filter(|value: &AValue| value.0 == 1);
+        let nodes = stash.find_all(|value: &AValue| value.0 == 1);
     }
 }

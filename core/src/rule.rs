@@ -466,32 +466,17 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule4<PA, PB, PC, PD, V, StashValue, F>
                -> CoreResult<PredicateMatches<(PA::M, PB::M, PC::M, PD::M)>> {
         let mut result = PredicateMatches::default();
         let matches_0 = self.pattern.0.find_all(stash)?;
-        if matches_0.is_empty() {
-            return Ok(result);
-        }
-        let matches_1 = self.pattern.1.find_all(stash)?;
-        if matches_1.is_empty() {
-            return Ok(result);
-        }
-        let matches_2 = self.pattern.2.find_all(stash)?;
-        if matches_2.is_empty() {
-            return Ok(result);
-        }
-        let matches_3 = self.pattern.3.find_all(stash)?;
-        if matches_3.is_empty() {
-            return Ok(result);
-        }
         for m0 in matches_0.iter() {
+            let matches_1 = self.pattern.1
+              .nearest_neighbors_from(stash, m0.byte_range().1)?;
             for m1 in matches_1.iter() {
-                if adjacent(m0, m1, stash.sentence) {
-                    for m2 in matches_2.iter() {
-                        if adjacent(m1, m2, stash.sentence) {
-                            for m3 in matches_3.iter() {
-                                if adjacent(m2, m3, stash.sentence) {
-                                    result.push((m0.clone(), m1.clone(), m2.clone(), m3.clone()))
-                                }
-                            }
-                        }
+                let matches_2 = self.pattern.2
+                  .nearest_neighbors_from(stash, m1.byte_range().1)?;
+                for m2 in matches_2.iter() {
+                   let matches_3 = self.pattern.3
+                    .nearest_neighbors_from(stash, m2.byte_range().1)?;
+                    for m3 in matches_3.iter() {
+                          result.push((m0.clone(), m1.clone(), m2.clone(), m3.clone()))
                     }
                 }
             }
@@ -606,40 +591,21 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule5<PA, PB, PC, PD, PE, V, StashVal
                -> CoreResult<PredicateMatches<(PA::M, PB::M, PC::M, PD::M, PE::M)>> {
         let mut result = PredicateMatches::default();
         let matches_0 = self.pattern.0.find_all(stash)?;
-        if matches_0.is_empty() {
-            return Ok(result);
-        }
-        let matches_1 = self.pattern.1.find_all(stash)?;
-        if matches_1.is_empty() {
-            return Ok(result);
-        }
-        let matches_2 = self.pattern.2.find_all(stash)?;
-        if matches_2.is_empty() {
-            return Ok(result);
-        }
-        let matches_3 = self.pattern.3.find_all(stash)?;
-        if matches_3.is_empty() {
-            return Ok(result);
-        }
-        let matches_4 = self.pattern.4.find_all(stash)?;
-        if matches_4.is_empty() {
-            return Ok(result);
-        }
         for m0 in matches_0.iter() {
+            let matches_1 = self.pattern.1
+              .nearest_neighbors_from(stash, m0.byte_range().1)?;
             for m1 in matches_1.iter() {
-                if adjacent(m0, m1, stash.sentence) {
-                    for m2 in matches_2.iter() {
-                        if adjacent(m1, m2, stash.sentence) {
-                            for m3 in matches_3.iter() {
-                                if adjacent(m2, m3, stash.sentence) {
-                                    for m4 in matches_4.iter() {
-                                        if adjacent(m3, m4, stash.sentence) {
-                                            result.push((m0.clone(), m1.clone(), m2.clone(), m3.clone(), m4.clone()))
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                let matches_2 = self.pattern.2
+                  .nearest_neighbors_from(stash, m1.byte_range().1)?;
+                for m2 in matches_2.iter() {
+                   let matches_3 = self.pattern.3
+                    .nearest_neighbors_from(stash, m2.byte_range().1)?;
+                    for m3 in matches_3.iter() {
+                          let matches_4 = self.pattern.4
+                            .nearest_neighbors_from(stash, m3.byte_range().1)?;
+                          for m4 in matches_4.iter() {
+                              result.push((m0.clone(), m1.clone(), m2.clone(), m3.clone(), m4.clone()))
+                          }
                     }
                 }
             }
@@ -756,46 +722,23 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule6<PA, PB, PC, PD, PE, PF, V, 
                -> CoreResult<PredicateMatches<(PA::M, PB::M, PC::M, PD::M, PE::M, PF::M)>> {
         let mut result = PredicateMatches::default();
         let matches_0 = self.pattern.0.find_all(stash)?;
-        if matches_0.is_empty() {
-            return Ok(result);
-        }
-        let matches_1 = self.pattern.1.find_all(stash)?;
-        if matches_1.is_empty() {
-            return Ok(result);
-        }
-        let matches_2 = self.pattern.2.find_all(stash)?;
-        if matches_2.is_empty() {
-            return Ok(result);
-        }
-        let matches_3 = self.pattern.3.find_all(stash)?;
-        if matches_3.is_empty() {
-            return Ok(result);
-        }
-        let matches_4 = self.pattern.4.find_all(stash)?;
-        if matches_4.is_empty() {
-            return Ok(result);
-        }
-        let matches_5 = self.pattern.5.find_all(stash)?;
-        if matches_5.is_empty() {
-            return Ok(result);
-        }
         for m0 in matches_0.iter() {
+            let matches_1 = self.pattern.1
+              .nearest_neighbors_from(stash, m0.byte_range().1)?;
             for m1 in matches_1.iter() {
-                if adjacent(m0, m1, stash.sentence) {
-                    for m2 in matches_2.iter() {
-                        if adjacent(m1, m2, stash.sentence) {
-                            for m3 in matches_3.iter() {
-                                if adjacent(m2, m3, stash.sentence) {
-                                    for m4 in matches_4.iter() {
-                                        if adjacent(m3, m4, stash.sentence) {
-                                            for m5 in matches_5.iter() {
-                                              if adjacent(m4, m5, stash.sentence) {
-                                                  result.push((m0.clone(), m1.clone(), m2.clone(), m3.clone(), m4.clone(), m5.clone()))
-                                              }
-                                            }
-                                        }
-                                    }
-                                }
+                let matches_2 = self.pattern.2
+                  .nearest_neighbors_from(stash, m1.byte_range().1)?;
+                for m2 in matches_2.iter() {
+                   let matches_3 = self.pattern.3
+                    .nearest_neighbors_from(stash, m2.byte_range().1)?;
+                    for m3 in matches_3.iter() {
+                        let matches_4 = self.pattern.4
+                          .nearest_neighbors_from(stash, m3.byte_range().1)?;
+                        for m4 in matches_4.iter() {
+                            let matches_5 = self.pattern.5
+                              .nearest_neighbors_from(stash, m4.byte_range().1)?;
+                            for m5 in matches_5.iter() {
+                               result.push((m0.clone(), m1.clone(), m2.clone(), m3.clone(), m4.clone(), m5.clone()))
                             }
                         }
                     }
@@ -876,10 +819,10 @@ mod tests {
         let ten = st.sym("ten");
         let rule = Rule1::new(ten, (reg!(st, usize, "ten")), |_| Ok(10usize));
         assert_eq!(vec![Text::new(svec![Range(8, 11)], Range(8, 11), ten)],
-                   rule.matches(&Stash::default(), "foobar: ten").unwrap());
+                   rule.matches(&Stash::new("foobar: ten")).unwrap());
         assert_eq!(vec![Text::new(svec![Range(8, 11)], Range(8, 11), ten),
                         Text::new(svec![Range(12, 15)], Range(12, 15), ten)],
-                   rule.matches(&Stash::default(), "foobar: ten ten").unwrap());
+                   rule.matches(&Stash::new("foobar: ten ten")).unwrap());
         assert_eq!(svec4![ParsedNode::new(ten,
                                           10usize,
                                           Range(8, 11),
@@ -890,7 +833,7 @@ mod tests {
                                           Range(12, 15),
                                           Some(10usize),
                                           svec![Node::new(ten, Range(12, 15), None, svec![])])],
-                   rule.apply(&Stash::default(), "foobar: ten ten").unwrap())
+                   rule.apply(&Stash::new("foobar: ten ten")).unwrap())
     }
 
     #[test]
@@ -903,19 +846,19 @@ mod tests {
                                                                              *integer == 10
                                                                          })])),
                        |a, b| Ok(a.value() + b.value()));
-        let mut stash  = Stash::default();
+        let mut stash  = Stash::new("foobar: ten ten");
         stash.push(ParsedNode::new(st.sym("ten"), 10, Range(8, 11), None, svec![]));
         stash.push(ParsedNode::new(st.sym("ten"), 10, Range(12, 15), None, svec![]));
 
         assert_eq!(vec![(stash.values()[0].clone(), stash.values()[1].clone())],
-                   rule_consec.matches(&stash, "foobar: ten ten").unwrap());
+                   rule_consec.matches(&stash).unwrap());
         assert_eq!(svec4![ParsedNode::new(st.sym("2 consecutive ints"),
                                           20,
                                           Range(8, 15),
                                           Some(20),
                                           svec![stash.values()[0].root_node.clone(),
                                                 stash.values()[1].root_node.clone()])],
-                   rule_consec.apply(&stash, "foobar: ten ten").unwrap());
+                   rule_consec.apply(&stash).unwrap());
     }
 
     #[test]
@@ -933,7 +876,7 @@ mod tests {
                                                           Range(8, 10),
                                                           None,
                                                           svec![])])],
-                   rule_int.apply(&Stash::default(), "foobar: 42").unwrap());
+                   rule_int.apply(&Stash::new("foobar: 42")).unwrap());
     }
 
 }
