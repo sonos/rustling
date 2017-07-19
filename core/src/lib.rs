@@ -99,6 +99,28 @@ impl SymbolTable {
     }
 }
 
+#[derive(Debug, PartialEq, Clone, Hash, Eq, Copy)]
+pub enum ParsingStatus {
+    Continue,
+    Exit,
+}
+
+impl ParsingStatus {
+    pub fn is_exit(&self) -> bool {
+        match self {
+            &ParsingStatus::Exit => true,
+            _ => false
+        }
+    }
+
+    pub fn is_continue(&self) -> bool {
+        match self {
+            &ParsingStatus::Continue => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct Node<Payload: Clone> {
     pub rule_sym: Sym,
@@ -153,16 +175,20 @@ impl<StashValue: NodePayload+StashIndexable> RuleSet<StashValue> {
     fn apply_terminal_rules(&self, stash: &mut Stash<StashValue>, sentence: &str) -> CoreResult<()> {
         let mut produced_nodes = vec![];
         for rule in &self.terminal_rules {
-            produced_nodes.extend(rule.apply(stash, sentence)?);
+            produced_nodes.extend(rule.apply(stash, sentence)?.nodes);
         }
         stash.extend(produced_nodes);
         Ok(())
     }
 
-    fn apply_composition_rules(&self, stash: &mut Stash<StashValue>, sentence: &str) -> CoreResult<()> {
+    fn apply_composition_rules(&self, stash: &mut Stash<StashValue>, sentence: &str, rules_mask_status: &mut Vec<ParsingStatus>) -> CoreResult<()> {
         let mut produced_nodes = vec![];
-        for rule in &self.composition_rules {
-            produced_nodes.extend(rule.apply(stash, sentence)?);
+        for (idx, rule) in self.composition_rules.iter().enumerate() {
+            if rules_mask_status[idx].is_continue() {
+                let output = rule.apply(stash, sentence)?;
+                rules_mask_status[idx] = output.status;
+                produced_nodes.extend(output.nodes);
+            }
         }
         stash.extend(produced_nodes);
         Ok(())
@@ -175,9 +201,11 @@ impl<StashValue: NodePayload+StashIndexable> RuleSet<StashValue> {
         
         self.apply_terminal_rules(&mut stash, sentence)?;
         let mut previous_stash_size = stash.len();
+
+        let mut rules_mask_status = vec!(ParsingStatus::Continue; self.composition_rules.len());
         
         for _ in 0..iterations_max {
-            self.apply_composition_rules(&mut stash, sentence)?;
+            self.apply_composition_rules(&mut stash, sentence, &mut rules_mask_status)?;
             if stash.len() <= previous_stash_size || stash.len() > max_stash_size {
                 break;
             }

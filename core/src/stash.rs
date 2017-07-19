@@ -81,4 +81,9 @@ impl<S: StashIndexable + NodePayload> Stash<S>{
     pub fn len(&self) -> usize {
         self.values.len()
     }
+
+    #[cfg(test)]
+    pub fn values<'a>(&'a self) -> &'a Vec<ParsedNode<S>> {
+        self.values.as_ref()
+    }
 }

@@ -4,9 +4,11 @@ use std::rc;
 use smallvec::SmallVec;
 
 use errors::*;
-use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash, StashIndexable, InnerStashIndexable, NodePayload};
+use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash, StashIndexable, InnerStashIndexable, NodePayload, ParsingStatus};
 use helpers::BoundariesChecker;
 use range::Range;
+use std::slice::Iter;
+use std::vec::IntoIter;
 
 pub trait Match: Clone {
     type NV: Clone;
@@ -60,7 +62,54 @@ impl<V: NodePayload> Match for Text<V> {
     }
 }
 
-pub type PredicateMatches<M> = Vec<M>;
+pub struct PredicateMatches<M> {
+    pub matches: Vec<M>,
+    pub status: ParsingStatus,
+}
+
+impl<M> PredicateMatches<M> {
+    pub fn with_status(status: ParsingStatus) -> PredicateMatches<M> {
+        PredicateMatches {
+            matches: vec![],
+            status,
+        }
+    }
+
+    pub fn continue_with(matches: Vec<M>) -> PredicateMatches<M> {
+        PredicateMatches {
+            matches: matches,
+            status: ParsingStatus::Continue,
+        }
+    }
+
+    pub fn exit_if_empty(self) -> PredicateMatches<M> {
+        if self.matches.len() == 0 {
+            PredicateMatches::with_status(ParsingStatus::Exit)
+        } else {
+            self
+        }
+    }
+
+    pub fn push(&mut self, match_: M) {
+        self.matches.push(match_)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.matches.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.matches.len()
+    }
+
+    pub fn iter(&self) -> Iter<M> {
+        self.matches.iter()
+    }
+
+    pub fn into_iter(self) -> IntoIter<M> {
+        self.matches.into_iter()
+    }
+}
 
 pub trait Pattern<StashValue: NodePayload+StashIndexable>: Send + Sync {
     type M: Match<NV=StashValue::Payload>;
@@ -96,7 +145,7 @@ impl<StashValue: NodePayload+StashIndexable> Pattern<StashValue> for TextPattern
                  _stash: &Stash<StashValue>,
                  sentence: &str)
                  -> CoreResult<PredicateMatches<Self::M>> {
-        let mut results = PredicateMatches::new();
+        let mut results = PredicateMatches::with_status(ParsingStatus::Continue);
         for cap in self.pattern.captures_iter(&sentence) {
             let full = cap.get(0)
                 .ok_or_else(|| {
@@ -130,7 +179,7 @@ impl<StashValue: NodePayload+StashIndexable> Pattern<StashValue> for TextPattern
                          })
         }
 
-        Ok(results)
+        Ok(results.exit_if_empty())
     }
 }
 
@@ -166,7 +215,7 @@ impl<StashValue: NodePayload+StashIndexable> Pattern<StashValue> for TextNegLHPa
                  _stash: &Stash<StashValue>,
                  sentence: &str)
                  -> CoreResult<PredicateMatches<Text<StashValue>>> {
-        let mut results = PredicateMatches::new();
+        let mut results = PredicateMatches::with_status(ParsingStatus::Continue);
         for cap in self.pattern.captures_iter(&sentence) {
             let full = cap.get(0)
                 .ok_or_else(|| {
@@ -205,7 +254,7 @@ impl<StashValue: NodePayload+StashIndexable> Pattern<StashValue> for TextNegLHPa
                          })
         }
 
-        Ok(results)
+        Ok(results.exit_if_empty())
     }
 }
 
@@ -249,25 +298,9 @@ impl<StashValue, V> Pattern<StashValue> for FilterNodePattern<V>
                  stash: &Stash<StashValue>,
                  _sentence: &str)
                  -> CoreResult<PredicateMatches<ParsedNode<V>>> {
-        Ok(stash.filter(|v|{
+        Ok(PredicateMatches::continue_with(stash.filter(|v|{
             self.predicates.iter().all(|predicate| (predicate)(&v))
-        }))
-        // Ok(stash
-        //        .iter()
-        //        .filter_map(|it| if let Some(v) = V::attempt_from(it.value.clone()) {
-        //                        if self.predicates.iter().all(|predicate| (predicate)(&v)) {
-        //                            Some(ParsedNode::new(it.root_node.rule_sym,
-        //                                                 v,
-        //                                                 it.byte_range(),
-        //                                                 it.root_node.payload.clone(),
-        //                                                 it.root_node.children.clone()))
-        //                        } else {
-        //                            None
-        //                        }
-        //                    } else {
-        //                        None
-        //                    })
-        //        .collect())
+        })))
     }
 }
 
@@ -286,24 +319,24 @@ mod tests {
 
     #[test]
     fn test_regex_separated_string() {
-        let stash = vec![];
+        let stash = Stash::default();
         let checker = BoundariesChecker::Detailed;
         let pat: TextPattern<usize> = TextPattern::new(::regex::Regex::new("a+").unwrap(), Sym(0), checker);
         assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
-                   pat.predicate(&stash, "aaa").unwrap());
+                   pat.predicate(&stash, "aaa").unwrap().matches);
         assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
-                   pat.predicate(&stash, "aaa bbb").unwrap());
+                   pat.predicate(&stash, "aaa bbb").unwrap().matches);
         assert_eq!(vec![Text::new(svec4!(Range(4, 7)), Range(4, 7), Sym(0))],
-                   pat.predicate(&stash, "bbb aaa").unwrap());
-        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "baaa").unwrap());
-        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "aaab").unwrap());
-        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "aaaé").unwrap());
-        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "éaaa").unwrap());
+                   pat.predicate(&stash, "bbb aaa").unwrap().matches);
+        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "baaa").unwrap().matches);
+        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "aaab").unwrap().matches);
+        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "aaaé").unwrap().matches);
+        assert_eq!(Vec::<Text<usize>>::new(), pat.predicate(&stash, "éaaa").unwrap().matches);
         assert_eq!(vec![Text::new(svec4!(Range(1, 4)), Range(1, 4), Sym(0))],
-                   pat.predicate(&stash, "1aaa").unwrap());
+                   pat.predicate(&stash, "1aaa").unwrap().matches);
         assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
-                   pat.predicate(&stash, "aaa1").unwrap());
+                   pat.predicate(&stash, "aaa1").unwrap().matches);
         assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
-                   pat.predicate(&stash, "aaa-toto").unwrap());
+                   pat.predicate(&stash, "aaa-toto").unwrap().matches);
     }
 }
