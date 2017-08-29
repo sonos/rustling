@@ -156,45 +156,7 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
 mod tests {
     use std::str::FromStr;
     use super::*;
-
-    // fn cmp(a: &&str, b: &&str) -> Option<Ordering> {
-    //     if a == b {
-    //         Some(Ordering::Equal)
-    //     } else if a.starts_with(b) {
-    //         Some(Ordering::Greater)
-    //     } else if b.starts_with(a) {
-    //         Some(Ordering::Less)
-    //     } else {
-    //         None
-    //     }
-    // }
-
-    // #[test]
-    // fn test_adhoc_order() {
-    //     assert_eq!(cmp(&"a", &"aa"), Some(Ordering::Less));
-    //     assert_eq!(cmp(&"b", &"aa"), None);
-    //     assert_eq!(cmp(&"ba", &"aa"), None);
-    //     assert_eq!(cmp(&"aa", &"aa"), Some(Ordering::Equal));
-    //     assert_eq!(cmp(&"aaa", &"aa"), Some(Ordering::Greater));
-    //     assert_eq!(cmp(&"ab", &"aa"), None);
-    // }
-
-    // fn maximal_elements<I, CMP: Fn(&I, &I) -> Option<Ordering>>(values: Vec<I>,
-    //                                                             cmp: CMP)
-    //                                                             -> Vec<I> {
-    //     super::tag_maximal_elements(values, cmp)
-    //         .into_iter()
-    //         .filter(|&(_, m)| m)
-    //         .map(|(a, _)| a)
-    //         .collect()
-    // }
-
-    // #[test]
-    // fn max_elements() {
-    //     let values = vec!["ba", "baaar", "foo", "aa", "aaa", "a"];
-    //     assert_eq!(maximal_elements(values, cmp), vec!["baaar", "foo", "aaa"])
-    // }
-
+    
     #[derive(Copy,Clone,Debug,PartialEq)]
     pub struct MyPayload;
 
