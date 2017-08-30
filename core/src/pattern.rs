@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn test_regex_separated_string() {
         let stash = Stash::default();
-        let checker = BoundariesChecker::Detailed;
+        let checker = BoundariesChecker::detailed();
         let pat: TextPattern<usize> = TextPattern::new(::regex::Regex::new("a+").unwrap(), Sym(0), checker);
         assert_eq!(vec![Text::new(svec4!(Range(0, 3)), Range(0, 3), Sym(0))],
                    pat.predicate(&stash, "aaa").unwrap().matches);

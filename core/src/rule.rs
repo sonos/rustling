@@ -954,7 +954,7 @@ use rule::*;
     } 
 
     macro_rules! reg {
-        ($st:expr, $typ:ty, $pattern:expr) => ( $crate::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $st.sym($pattern), BoundariesChecker::SperatedAlphanumericWord) )
+        ($st:expr, $typ:ty, $pattern:expr) => ( $crate::pattern::TextPattern::<$typ>::new(::regex::Regex::new($pattern).unwrap(), $st.sym($pattern), BoundariesChecker::separated_alphanumeric_word()) )
     }
 
     #[test]

@@ -180,7 +180,7 @@ mod tests {
     }
 
     fn rules() -> RuleSet<Int> {
-        let b = RuleSetBuilder::new(BoundariesChecker::Detailed);
+        let b = RuleSetBuilder::new(BoundariesChecker::detailed(), BoundariesChecker::separated_alphanumeric_word());
         b.rule_1("integer (numeric)",
                  b.reg(r#"(\d{1,18})"#).unwrap(),
                  |text_match| Ok(Int(text_match.group(0).parse::<usize>()?)));
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_integer_numeric_infix_rule() {
-        let b = RuleSetBuilder::new(BoundariesChecker::Detailed);
+        let b = RuleSetBuilder::new(BoundariesChecker::detailed(), BoundariesChecker::separated_alphanumeric_word());
         b.rule_1("int",
                  b.reg("\\d+").unwrap(),
                  |a| Ok(Int(usize::from_str(&*a.group(0))?)));
@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn test_with_enum_value() {
-        let b = RuleSetBuilder::new(BoundariesChecker::Detailed);
+        let b = RuleSetBuilder::new(BoundariesChecker::detailed(), BoundariesChecker::separated_alphanumeric_word());
         b.rule_1("int",
                  b.reg("\\d+").unwrap(),
                  |a| Ok(Int(usize::from_str(&*a.group(0))?)));

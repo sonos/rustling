@@ -1,44 +1,42 @@
 use range::Range;
 
 #[derive(Copy,Clone, Debug, PartialEq)]
-pub enum BoundariesClass {
-    AlphanumericWord { separated: bool },
-    AlphabeticWord { separated: bool },
-    Detailed { separated: bool },
-    Any,
+enum BoundariesClass {
+    AlphanumericWord { option: ValidBoundariesOption },
+    AlphabeticWord { option: ValidBoundariesOption  },
+    Detailed { option: ValidBoundariesOption  },
+    NoClass,
 }
 
 impl BoundariesClass {
-    pub fn apply(&self, sentence: &str, range: &Range) -> bool {
+    fn apply_left(&self, sentence: &str, range: &Range) -> bool {
         match self {
-            &BoundariesClass::AlphanumericWord { separated } => {
-                let option = if separated { 
-                    ValidBoundariesOption::OnCharClassChange 
-                } else {
-                    ValidBoundariesOption::OnSameCharClass
-                };
+            &BoundariesClass::AlphanumericWord { option } => {
                 left_valid_boundaries(sentence, range, &option, &alphanumeric_class)
-                && right_valid_boundaries(sentence, range, &option, &alphanumeric_class)
             },
-            &BoundariesClass::AlphabeticWord { separated } => {
-                let option = if separated { 
-                    ValidBoundariesOption::OnCharClassChange 
-                } else {
-                    ValidBoundariesOption::OnSameCharClass
-                };
+            &BoundariesClass::AlphabeticWord { option } => {
                 left_valid_boundaries(sentence, range, &option, &alphabetic_class)
-                && right_valid_boundaries(sentence, range, &option, &alphabetic_class)
             },
-            &BoundariesClass::Detailed { separated } => {
-                let option = if separated { 
-                    ValidBoundariesOption::OnCharClassChange 
-                } else {
-                    ValidBoundariesOption::OnSameCharClass
-                };
-                left_valid_boundaries(sentence, range, &option, &detailed_class)
-                && right_valid_boundaries(sentence, range, &option, &detailed_class)            
+            &BoundariesClass::Detailed { option } => {
+                left_valid_boundaries(sentence, range, &option, &detailed_class)          
             },
-            &BoundariesClass::Any => {
+            &BoundariesClass::NoClass => {
+                true
+            }
+        }
+    }
+    fn apply_right(&self, sentence: &str, range: &Range) -> bool {
+        match self {
+            &BoundariesClass::AlphanumericWord { option } => {
+                right_valid_boundaries(sentence, range, &option, &alphanumeric_class)
+            },
+            &BoundariesClass::AlphabeticWord { option } => {
+                right_valid_boundaries(sentence, range, &option, &alphabetic_class)
+            },
+            &BoundariesClass::Detailed { option } => {
+                right_valid_boundaries(sentence, range, &option, &detailed_class)          
+            },
+            &BoundariesClass::NoClass => {
                 true
             }
         }
@@ -50,10 +48,34 @@ pub struct BoundariesChecker(Vec<BoundariesClass>);
 
 impl BoundariesChecker {
     pub fn check(&self, sentence: &str, range: Range) -> bool {
-        self.0.iter().any(|c| c.apply(sentence, &range))
+        self.0.iter().any(|c| c.apply_left(sentence, &range)) && self.0.iter().any(|c| c.apply_right(sentence, &range))
     }
+
+    pub fn separated_alphanumeric_word() -> BoundariesChecker {
+        BoundariesChecker(vec![BoundariesClass::AlphanumericWord { option: ValidBoundariesOption::OnCharClassChange }])
+    }
+
+    pub fn detailed() -> BoundariesChecker {
+        BoundariesChecker(vec![BoundariesClass::Detailed { option: ValidBoundariesOption::OnCharClassChange }])
+    }
+
+    pub fn composed_word_or_detailed() -> BoundariesChecker {
+        BoundariesChecker(
+            vec![
+                BoundariesClass::AlphabeticWord { option: ValidBoundariesOption::OnSameCharClass }, 
+                BoundariesClass::Detailed { option: ValidBoundariesOption::OnCharClassChange }
+            ]
+        )
+    }
+
+    pub fn no_check() -> BoundariesChecker {
+        BoundariesChecker(vec![BoundariesClass::NoClass])
+    }
+
+
 }
 
+#[derive(Copy,Clone, Debug, PartialEq)]
 enum ValidBoundariesOption {
     OnCharClassChange,
     OnSameCharClass,
@@ -127,7 +149,7 @@ mod tests {
 
     #[test]
     fn test_valid_boundaries_alphanumeric() {
-        let checker = BoundariesChecker::SperatedAlphanumericWord;
+        let checker = BoundariesChecker::separated_alphanumeric_word();
         assert_eq!(true, checker.check("abc def ret", Range(4, 7))); // "def"
         assert_eq!(false, checker.check("abc def ret", Range(2, 8))); // "c def r"
         assert_eq!(false, checker.check("abc def123 ret", Range(4, 7))); // "def"
@@ -144,7 +166,7 @@ mod tests {
 
     #[test]
     fn test_valid_boundaries_composed_word_or_detailed() {
-        let checker = BoundariesChecker::ComposedWordOrDetailed;
+        let checker = BoundariesChecker::composed_word_or_detailed();
         assert_eq!(true, checker.check("abc def ret", Range(4, 7))); // "def"
         assert_eq!(true, checker.check("abc def ret", Range(2, 8))); // "c def r"
         assert_eq!(true, checker.check("abc def123 ret", Range(4, 7))); // "def"
@@ -161,7 +183,7 @@ mod tests {
 
     #[test]
     fn test_valid_boundaries_detailed() {
-        let checker = BoundariesChecker::Detailed;
+        let checker = BoundariesChecker::detailed();
         assert_eq!(true, checker.check("abc def ret", Range(4, 7))); // "def"
         assert_eq!(false, checker.check("abc def ret", Range(2, 8))); // "c def r"
         assert_eq!(true, checker.check("abc def123 ret", Range(4, 7))); // "def"
@@ -173,6 +195,23 @@ mod tests {
         assert_eq!(false, checker.check("aec def rét", Range(2, 8))); // "c def r"
         assert_eq!(false, checker.check("aec déf ret", Range(2, 9))); // "c déf r"
         assert_eq!(false, checker.check("aeç def ret", Range(2, 9))); // "ç def r"
+        assert_eq!(true, checker.check("aeç def ret", Range(4, 8))); // " def "
+    }
+
+    #[test]
+    fn test_valid_boundaries_no_check() {
+        let checker = BoundariesChecker::no_check();
+        assert_eq!(true, checker.check("abc def ret", Range(4, 7))); // "def"
+        assert_eq!(true, checker.check("abc def ret", Range(2, 8))); // "c def r"
+        assert_eq!(true, checker.check("abc def123 ret", Range(4, 7))); // "def"
+        assert_eq!(true, checker.check("def123 ret", Range(0, 6))); // "def123"
+        assert_eq!(true, checker.check("def123 ret", Range(0, 3))); // "def"
+        assert_eq!(true, checker.check("ret def", Range(4, 7))); // "def"
+        assert_eq!(true, checker.check("ret 123def", Range(7, 10))); // "def"
+        assert_eq!(true, checker.check("aéc def ret", Range(3, 9))); // "c def r"
+        assert_eq!(true, checker.check("aec def rét", Range(2, 8))); // "c def r"
+        assert_eq!(true, checker.check("aec déf ret", Range(2, 9))); // "c déf r"
+        assert_eq!(true, checker.check("aeç def ret", Range(2, 9))); // "ç def r"
         assert_eq!(true, checker.check("aeç def ret", Range(4, 8))); // " def "
     }
 }
