@@ -11,16 +11,18 @@ pub struct RuleSetBuilder<StashValue: NodePayload+StashIndexable> {
     symbols: cell::RefCell<SymbolTable>,
     composition_rules: cell::RefCell<Vec<Box<Rule<StashValue>>>>,
     terminal_rules: cell::RefCell<Vec<Box<TerminalRule<StashValue>>>>,
-    boundaries_checker: BoundariesChecker,
+    word_boundaries: BoundariesChecker,
+    match_boundaries: BoundariesChecker,
 }
 
 impl<StashValue: NodePayload+StashIndexable> RuleSetBuilder<StashValue> {
-    pub fn new(boundaries_checker: BoundariesChecker) -> RuleSetBuilder<StashValue> {
+    pub fn new(word_boundaries: BoundariesChecker, match_boundaries: BoundariesChecker) -> RuleSetBuilder<StashValue> {
         RuleSetBuilder {
             symbols: cell::RefCell::new(SymbolTable::default()),
             composition_rules: cell::RefCell::new(vec![]),
             terminal_rules: cell::RefCell::new(vec![]),
-            boundaries_checker,
+            word_boundaries,
+            match_boundaries,
         }
     }
 }
@@ -258,7 +260,7 @@ impl<StashValue: NodePayload+StashIndexable> RuleSetBuilder<StashValue> {
     }
     
     pub fn reg(&self, regex:&str) -> CoreResult<pattern::TextPattern<StashValue>> {
-        Ok(pattern::TextPattern::new(::regex::Regex::new(regex)?, self.sym(regex), self.boundaries_checker))
+        Ok(pattern::TextPattern::new(::regex::Regex::new(regex)?, self.sym(regex), self.word_boundaries.clone()))
     }
 
     pub fn reg_neg_lh(&self, regex:&str, neg_lh:&str) -> CoreResult<pattern::TextNegLHPattern<StashValue>> {
@@ -266,10 +268,10 @@ impl<StashValue: NodePayload+StashIndexable> RuleSetBuilder<StashValue> {
                 ::regex::Regex::new(regex)?,
                 ::regex::Regex::new(neg_lh)?,
                 self.sym(format!("{}(?:{})", regex, neg_lh)),
-                self.boundaries_checker))
+                self.word_boundaries.clone()))
     }
 
     pub fn build(self) -> RuleSet<StashValue> {
-        RuleSet { symbols: self.symbols.into_inner(), terminal_rules: self.terminal_rules.into_inner(), composition_rules: self.composition_rules.into_inner() }
+        RuleSet { symbols: self.symbols.into_inner(), terminal_rules: self.terminal_rules.into_inner(), composition_rules: self.composition_rules.into_inner(), match_boundaries: self.match_boundaries }
     }
 }
