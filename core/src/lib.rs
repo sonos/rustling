@@ -212,7 +212,6 @@ impl<StashValue: NodePayload+StashIndexable> RuleSet<StashValue> {
             }
             previous_stash_size = stash.len();
         }
-        //Ok(stash.into_iter().filter(|pn| BoundariesChecker::SperatedAlphanumericWord.check(sentence, pn.root_node.byte_range)).collect())
         Ok(stash.into_iter().filter(|pn| self.match_boundaries.check(sentence, pn.root_node.byte_range)).collect())
     }
 
