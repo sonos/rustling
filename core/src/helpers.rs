@@ -1,33 +1,56 @@
 use range::Range;
 
 #[derive(Copy,Clone, Debug, PartialEq)]
-pub enum BoundariesChecker {
-    SperatedAlphanumericWord,
-    ComposedWordOrDetailed,
-    Detailed,
+pub enum BoundariesClass {
+    AlphanumericWord { separated: bool },
+    AlphabeticWord { separated: bool },
+    Detailed { separated: bool },
+    Any,
 }
+
+impl BoundariesClass {
+    pub fn apply(&self, sentence: &str, range: &Range) -> bool {
+        match self {
+            &BoundariesClass::AlphanumericWord { separated } => {
+                let option = if separated { 
+                    ValidBoundariesOption::OnCharClassChange 
+                } else {
+                    ValidBoundariesOption::OnSameCharClass
+                };
+                left_valid_boundaries(sentence, range, &option, &alphanumeric_class)
+                && right_valid_boundaries(sentence, range, &option, &alphanumeric_class)
+            },
+            &BoundariesClass::AlphabeticWord { separated } => {
+                let option = if separated { 
+                    ValidBoundariesOption::OnCharClassChange 
+                } else {
+                    ValidBoundariesOption::OnSameCharClass
+                };
+                left_valid_boundaries(sentence, range, &option, &alphabetic_class)
+                && right_valid_boundaries(sentence, range, &option, &alphabetic_class)
+            },
+            &BoundariesClass::Detailed { separated } => {
+                let option = if separated { 
+                    ValidBoundariesOption::OnCharClassChange 
+                } else {
+                    ValidBoundariesOption::OnSameCharClass
+                };
+                left_valid_boundaries(sentence, range, &option, &detailed_class)
+                && right_valid_boundaries(sentence, range, &option, &detailed_class)            
+            },
+            &BoundariesClass::Any => {
+                true
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoundariesChecker(Vec<BoundariesClass>);
 
 impl BoundariesChecker {
     pub fn check(&self, sentence: &str, range: Range) -> bool {
-        match self {
-            &BoundariesChecker::SperatedAlphanumericWord => {
-                   left_valid_boundaries(sentence, range, ValidBoundariesOption::OnCharClassChange, &alphanumeric_class)
-                && right_valid_boundaries(sentence, range, ValidBoundariesOption::OnCharClassChange, &alphanumeric_class)
-            },
-            &BoundariesChecker::ComposedWordOrDetailed => {
-                (   
-                    left_valid_boundaries(sentence, range, ValidBoundariesOption::OnSameCharClass, &composed_word_class)
-                 || left_valid_boundaries(sentence, range, ValidBoundariesOption::OnCharClassChange, &detailed_class)
-                ) && (
-                    right_valid_boundaries(sentence, range, ValidBoundariesOption::OnSameCharClass, &composed_word_class)
-                 || right_valid_boundaries(sentence, range, ValidBoundariesOption::OnCharClassChange, &detailed_class)
-                )
-            },  
-            &BoundariesChecker::Detailed => {
-                  left_valid_boundaries(sentence, range, ValidBoundariesOption::OnCharClassChange, &detailed_class)
-               && right_valid_boundaries(sentence, range, ValidBoundariesOption::OnCharClassChange, &detailed_class)            
-            }
-        }
+        self.0.iter().any(|c| c.apply(sentence, &range))
     }
 }
 
@@ -36,7 +59,7 @@ enum ValidBoundariesOption {
     OnSameCharClass,
 }
 
-fn composed_word_class(c: char) -> char {
+fn alphabetic_class(c: char) -> char {
     if c.is_alphabetic() {
         'A'
     } else {
@@ -60,7 +83,7 @@ fn detailed_class(c: char) -> char {
     }
 }
 
-fn right_valid_boundaries<CharClass>(sentence: &str, range: Range, option: ValidBoundariesOption, char_class: &CharClass) -> bool
+fn right_valid_boundaries<CharClass>(sentence: &str, range: &Range, option: &ValidBoundariesOption, char_class: &CharClass) -> bool
     where CharClass: Fn(char) -> char
 {
     let last_mine = sentence[range.0..range.1]
@@ -70,16 +93,16 @@ fn right_valid_boundaries<CharClass>(sentence: &str, range: Range, option: Valid
     let first_after = sentence[range.1..].chars().next().map(char_class); // Option(c)
 
     match option {
-        ValidBoundariesOption::OnCharClassChange => {
+        &ValidBoundariesOption::OnCharClassChange => {
             last_mine != first_after
         },
-        ValidBoundariesOption::OnSameCharClass => {
-            last_mine == first_after
+        &ValidBoundariesOption::OnSameCharClass => {
+            first_after == None || last_mine == first_after
         }
     }
 }
 
-fn left_valid_boundaries<CharClass>(sentence: &str, range: Range, option: ValidBoundariesOption, char_class: &CharClass) -> bool
+fn left_valid_boundaries<CharClass>(sentence: &str, range: &Range, option: &ValidBoundariesOption, char_class: &CharClass) -> bool
     where CharClass: Fn(char) -> char
 {
     let first_mine = sentence[range.0..range.1]
@@ -89,11 +112,11 @@ fn left_valid_boundaries<CharClass>(sentence: &str, range: Range, option: ValidB
     let last_before = sentence[..range.0].chars().next_back().map(char_class); // Option(c)
 
     match option {
-        ValidBoundariesOption::OnCharClassChange => {
+        &ValidBoundariesOption::OnCharClassChange => {
             first_mine != last_before
         },
-        ValidBoundariesOption::OnSameCharClass => {
-            first_mine == last_before
+        &ValidBoundariesOption::OnSameCharClass => {
+            first_mine == None || first_mine == last_before
         }
     }
 }
