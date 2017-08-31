@@ -6,6 +6,8 @@ extern crate rustling_ml;
 #[macro_use]
 extern crate serde_derive;
 
+use std::collections::HashSet;
+
 pub use rustling_core::regex;
 pub use rustling_core::{AttemptFrom, AttemptInto, Sym, Node, ParsedNode, Range, RuleSet,
                         RuleSetBuilder, NodePayload, BoundariesChecker, StashIndexable, InnerStashIndexable};
@@ -85,7 +87,14 @@ pub trait FeatureExtractor<V: Value, Feat: Feature> {
     fn for_node(&self, node: &Node<V::Payload>) -> Input<RuleId, Feat>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct ParsingAnalysis<'a> {
+    pub rules_coverage: f32,
+    pub unused_rules: Vec<&'a str>,
+    pub failed_examples: Vec<(String, usize)>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Candidate<V: Value, ResolvedV> {
     pub node: ParsedNode<V>,
     pub match_: ParserMatch<ResolvedV>,
@@ -142,9 +151,41 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
     pub fn parse<Tagger: MaxElementTagger<V>>(&self, input: &str, tagger: &Tagger) -> RustlingResult<Vec<ParserMatch<Tagger::O>>> {
         Ok(self.candidates(input, tagger)?
             .into_iter()
-            .filter(|c| c.tagged)
-            .map(|c| c.match_)
+            .filter_map(|c| {
+                if c.tagged {
+                    Some(c.match_)
+                } else {
+                    None
+                }
+            })
             .collect())
+    }
+
+    pub fn analyse<Tagger: MaxElementTagger<V>>(&self, examples: Vec<&str>, tagger: &Tagger) -> RustlingResult<ParsingAnalysis> {
+        let all_syms = self.rules.all_syms().into_iter().collect::<HashSet<_>>();
+        let mut used_syms = HashSet::new();
+        let mut failed_examples = vec![];
+
+        for example in examples.iter() {
+            let outputs = self.candidates(example, tagger)?
+                .into_iter()
+                .filter(|c| c.tagged)
+                .collect::<Vec<_>>();
+            
+            if outputs.len() != 1 {
+                failed_examples.push((example.to_string(), outputs.len()));
+            } else {
+                for sym in outputs[0].node.root_node.all_syms().into_iter() {
+                    used_syms.insert(*sym);
+                }
+            }
+        }
+        let unused_syms: HashSet<_> = all_syms.difference(&used_syms).collect();
+        Ok(ParsingAnalysis {
+            rules_coverage: used_syms.len() as f32 / all_syms.len() as f32,
+            unused_rules: unused_syms.into_iter().filter_map(|s| self.resolve_sym(&s)).collect(),
+            failed_examples: failed_examples,
+        })
     }
 
     pub fn resolve_sym(&self, sym:&Sym) -> Option<&str> {

@@ -11,6 +11,7 @@ use string_interner::StringInterner;
 use smallvec::SmallVec;
 use std::{rc, cell};
 use std::fmt::Debug;
+use std::collections::HashSet;
 
 pub mod pattern;
 pub mod rule;
@@ -147,6 +148,17 @@ impl<Payload: Clone>  Node<Payload> {
         let num_children: usize = self.children.iter().map(|c| c.num_nodes()).sum();
         num_children + 1
     }
+
+    pub fn all_syms<'a>(&'a self) -> HashSet<&'a Sym> {
+        let mut hash_set = HashSet::new();
+        hash_set.insert(&self.rule_sym);
+        for child in self.children.iter() {
+            for sym in child.all_syms().into_iter() {
+                hash_set.insert(sym);
+            }
+        }
+        hash_set
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -212,12 +224,15 @@ impl<StashValue: NodePayload+StashIndexable> RuleSet<StashValue> {
             }
             previous_stash_size = stash.len();
         }
-        //Ok(stash.into_iter().filter(|pn| BoundariesChecker::SperatedAlphanumericWord.check(sentence, pn.root_node.byte_range)).collect())
         Ok(stash.into_iter().filter(|pn| self.match_boundaries.check(sentence, pn.root_node.byte_range)).collect())
     }
 
     pub fn resolve_sym(&self, sym:&Sym) -> Option<&str> {
         self.symbols.0.resolve(*sym)
+    }
+
+    pub fn all_syms(&self) -> Vec<Sym> {
+        self.symbols.0.iter().map(|s| s.0).collect()
     }
 }
 
