@@ -234,6 +234,12 @@ impl<StashValue: NodePayload+StashIndexable> RuleSet<StashValue> {
     pub fn all_syms(&self) -> Vec<Sym> {
         self.symbols.0.iter().map(|s| s.0).collect()
     }
+
+    pub fn rules_syms(&self) -> Vec<Sym> {
+        self.composition_rules.iter().map(|r| r.rule_sym())
+            .chain(self.terminal_rules.iter().map(|r| r.rule_sym()))
+            .collect()
+    }
 }
 
 #[derive(Copy,Clone, Debug, PartialEq)]

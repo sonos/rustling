@@ -97,6 +97,7 @@ impl<StashValue: NodePayload> RuleOutput<StashValue> {
 type ParsedNodes<StashValue> = SmallVec<[ParsedNode<StashValue>; 1]>;
 
 pub trait Rule<StashValue: NodePayload+StashIndexable>: Send + Sync {
+    fn rule_sym(&self) -> Sym;
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
@@ -123,6 +124,10 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
           F: for<'a> Fn(&RuleProductionArg<'a, PA::M>) -> RuleResult<V> + Send + Sync,
           PA: Pattern<StashValue>
 {
+    fn rule_sym(&self) -> Sym {
+      self.sym
+    }
+
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
@@ -217,6 +222,10 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
           PA: Pattern<StashValue>,
           PB: Pattern<StashValue>,
 {
+    fn rule_sym(&self) -> Sym {
+      self.sym
+    }
+
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
@@ -330,6 +339,10 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, Sta
           PB: Pattern<StashValue>,
           PC: Pattern<StashValue>
 {
+    fn rule_sym(&self) -> Sym {
+      self.sym
+    }
+
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
@@ -461,6 +474,10 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule<StashValue> for Rule4<PA, PB, PC, PD
           PC: Pattern<StashValue>,
           PD: Pattern<StashValue>,
 {
+    fn rule_sym(&self) -> Sym {
+      self.sym
+    }
+
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
@@ -607,6 +624,10 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule<StashValue> for Rule5<PA, PB, PC
           PD: Pattern<StashValue>,
           PE: Pattern<StashValue>,
 {
+    fn rule_sym(&self) -> Sym {
+      self.sym
+    }
+
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
@@ -768,6 +789,10 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule<StashValue> for Rule6<PA, PB
           PE: Pattern<StashValue>,
           PF: Pattern<StashValue>,
 {
+    fn rule_sym(&self) -> Sym {
+      self.sym
+    }
+
     fn apply(&self,
              stash: &Stash<StashValue>,
              sentence: &str)
