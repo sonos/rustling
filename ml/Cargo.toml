@@ -1,6 +1,6 @@
 [package]
 name = "rustling-ml"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["hdlj <hubert.delajonquiere@snips.net>", "Mathieu Poumeyrol <kali@zoy.org>"]
 
 [dependencies]
