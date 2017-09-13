@@ -6,7 +6,7 @@ use fnv::FnvHashMap;
 use fnv::FnvHashSet;
 
 use {Classifier, Feature, FeatureExtractor, Model, Node, RuleId, RuleSet, Truth,
-     Value, StashIndexable};
+     Value, StashIndexable, ParsedNode};
 use RustlingResult;
 
 #[derive(Debug)]
@@ -25,7 +25,7 @@ impl<V: Value> Example<V> {
 }
 
 pub trait Check<V: Value>: Debug {
-    fn check(&self, value: &V) -> bool;
+    fn check(&self, value: &ParsedNode<V>) -> bool;
 }
 
 pub fn train<V, F, E>(rules: &RuleSet<V>, examples: Vec<Example<V>>, feature_extractor: E)
@@ -46,7 +46,7 @@ pub fn train<V, F, E>(rules: &RuleSet<V>, examples: Vec<Example<V>>, feature_ext
             stash
                 .into_iter()
                 .filter(|candidate| candidate.root_node.byte_range == ::Range(0, ex.text.len()))
-                .partition::<Vec<_>, _>(|candidate| ex.predicate.check(&candidate.value));
+                .partition::<Vec<_>, _>(|candidate| ex.predicate.check(&candidate));
         // - example sanity check
         if positive_parsed_nodes.is_empty() {
             Err(format!("example: {:?} matched no rule", ex.text))?

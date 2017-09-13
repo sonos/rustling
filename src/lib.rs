@@ -99,8 +99,8 @@ pub struct ParsingAnalysis<'a> {
     pub unused_rules: Vec<&'a str>,
     /// Text patterns's names which were not used during the analysis
     pub unused_text_pattern: Vec<&'a str>,
-    /// Failed examples with the number of output found. An example is a success if and only if one output is found during the parsing
-    pub failed_examples: Vec<(String, usize)>,
+    /// IFailed examples with the position of the example and the number of output found. An example is a success if and only if one output is found during the parsing
+    pub failed_examples: Vec<(usize, usize)>,
 }
 
 #[derive(Debug, Clone)]
@@ -178,14 +178,14 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
         let mut used_syms = HashSet::new();
         let mut failed_examples = vec![];
 
-        for example in examples.iter() {
+        for (idx, example) in examples.iter().enumerate() {
             let outputs = self.candidates(example, tagger)?
                 .into_iter()
                 .filter(|c| c.tagged)
                 .collect::<Vec<_>>();
             
             if outputs.len() != 1 {
-                failed_examples.push((example.to_string(), outputs.len()));
+                failed_examples.push((idx, outputs.len()));
             } else {
                 for sym in outputs[0].node.root_node.all_syms().into_iter() {
                     used_syms.insert(*sym);
@@ -208,6 +208,17 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
             unused_text_pattern: unused_text_pattern,
             failed_examples: failed_examples,
         })
+    }
+
+    pub fn num_rules(&self) -> usize {
+        self.rules.rules_syms().into_iter().collect::<HashSet<_>>().len()
+    }
+
+    pub fn num_text_patterns(&self) -> usize {
+        let all_syms = self.rules.all_syms().into_iter().collect::<HashSet<_>>();
+        let rules_syms = self.rules.rules_syms().into_iter().collect::<HashSet<_>>();
+        let text_pattern_syms: HashSet<_> = all_syms.difference(&rules_syms).map(|s| *s).collect();
+        text_pattern_syms.len()
     }
 
     pub fn resolve_sym(&self, sym:&Sym) -> Option<&str> {
@@ -399,8 +410,8 @@ mod tests {
                 unused_rules: vec!["pow"],
                 unused_text_pattern: vec!["\\^"],
                 failed_examples: vec![
-                        ("example that should fail".to_string(), 0), 
-                        ("another one".to_string(), 0),
+                        (0, 0), 
+                        (1, 0),
                         ],
                 }, 
             parser.analyse(vec!["example that should fail", "another one", "foo: 1.5", "foo: 2"], &TestMaxElementTagger).unwrap()
@@ -411,7 +422,7 @@ mod tests {
                 examples_coverage: 0.6666666,
                 unused_rules: vec![],
                 unused_text_pattern: vec![],
-                failed_examples: vec![("example that should fail".to_string(), 0)],}, 
+                failed_examples: vec![(0, 0)],}, 
             parser.analyse(vec!["example that should fail", "foo: 1.5^2", "foo: 2"], &TestMaxElementTagger).unwrap()
         );
     }
