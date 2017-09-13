@@ -19,14 +19,9 @@ macro_rules! variant_converters {
     }
 }
 
-#[macro_export]  
-macro_rules! rustling_value {
-    ( #[$doc:meta] #[$derive:meta] $name:ident $kindname:ident { $($varname:ident($varty:ty)),*, } fn latent($v1:ident: &$t1:ty) -> bool { $( $body1:tt )* } fn extract_payload($v2:ident: &$t2:ty) -> Option<$payload:ty> { $( $body2:tt )* } ) => {
-        #[$doc] #[$derive]
-        pub enum $name {
-            $( $varname($varty) ),*
-        }
-
+#[macro_export]
+macro_rules! enum_kind {
+    ($kindname:ident, [$($varname:ident),*]) => {
         #[derive(Debug,Copy,Clone,PartialEq, Hash, Eq)]
         pub enum $kindname {
             $( $varname ),*
@@ -39,6 +34,42 @@ macro_rules! rustling_value {
                 ]
             }
         }
+
+        impl ::std::str::FromStr for $kindname {
+            type Err=String;
+            fn from_str(s: &str) -> ::std::result::Result<$kindname, Self::Err> {
+                match s {
+                    $(
+                        stringify!($varname) => Ok($kindname::$varname),
+                    )*
+                    _ => Err(format!("{} is not a known {}", s, stringify!($kindname)))
+                }
+            }
+        }
+
+        impl ::std::string::ToString for $kindname {
+            fn to_string(&self) -> String {
+                match self {
+                    $(
+                        &$kindname::$varname => stringify!($varname).to_string(),
+                    )*
+                }
+            }
+        }
+    }
+}
+
+#[macro_export]  
+macro_rules! rustling_value {
+    ( #[$doc:meta] #[$derive:meta] $name:ident $kindname:ident { $($varname:ident($varty:ty)),*, } fn latent($v1:ident: &$t1:ty) -> bool { $( $body1:tt )* } fn extract_payload($v2:ident: &$t2:ty) -> Option<$payload:ty> { $( $body2:tt )* } ) => {
+        #[$doc] #[$derive]
+        pub enum $name {
+            $( $varname($varty) ),*
+        }
+
+        enum_kind!($kindname, [
+                $( $varname ),*
+        ]);
 
         impl Value for $name {
             type Kind = $kindname;
@@ -78,28 +109,6 @@ macro_rules! rustling_value {
                     $( $body2 )*
                 }
                 i(&self)
-            }
-        }
-
-        impl ::std::str::FromStr for $kindname {
-            type Err=String;
-            fn from_str(s: &str) -> ::std::result::Result<$kindname, Self::Err> {
-                match s {
-                    $(
-                        stringify!($varname) => Ok($kindname::$varname),
-                    )*
-                    _ => Err(format!("{} is not a known {}", s, stringify!($kindname)))
-                }
-            }
-        }
-
-        impl ::std::string::ToString for $kindname {
-            fn to_string(&self) -> String {
-                match self {
-                    $(
-                        &$kindname::$varname => stringify!($varname).to_string(),
-                    )*
-                }
             }
         }
 

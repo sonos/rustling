@@ -6,6 +6,8 @@ extern crate rustling_ml;
 #[macro_use]
 extern crate serde_derive;
 
+use std::collections::HashSet;
+
 pub use rustling_core::regex;
 pub use rustling_core::{AttemptFrom, AttemptInto, Sym, Node, ParsedNode, Range, RuleSet,
                         RuleSetBuilder, NodePayload, BoundariesChecker, StashIndexable, InnerStashIndexable};
@@ -85,7 +87,23 @@ pub trait FeatureExtractor<V: Value, Feat: Feature> {
     fn for_node(&self, node: &Node<V::Payload>) -> Input<RuleId, Feat>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParsingAnalysis<'a> {
+    /// Coverage of rules used during the analysis
+    pub rules_coverage: f32,
+    /// Coverage of text pattern used during the analysis
+    pub text_pattern_coverage: f32,
+    /// Coverage of example with only one output
+    pub examples_coverage: f32,
+    /// Rules' names which were not used during the analysis
+    pub unused_rules: Vec<&'a str>,
+    /// Text patterns's names which were not used during the analysis
+    pub unused_text_pattern: Vec<&'a str>,
+    /// IFailed examples with the position of the example and the number of output found. An example is a success if and only if one output is found during the parsing
+    pub failed_examples: Vec<(usize, usize)>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Candidate<V: Value, ResolvedV> {
     pub node: ParsedNode<V>,
     pub match_: ParserMatch<ResolvedV>,
@@ -142,9 +160,65 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
     pub fn parse<Tagger: MaxElementTagger<V>>(&self, input: &str, tagger: &Tagger) -> RustlingResult<Vec<ParserMatch<Tagger::O>>> {
         Ok(self.candidates(input, tagger)?
             .into_iter()
-            .filter(|c| c.tagged)
-            .map(|c| c.match_)
+            .filter_map(|c| {
+                if c.tagged {
+                    Some(c.match_)
+                } else {
+                    None
+                }
+            })
             .collect())
+    }
+
+    pub fn analyse<Tagger: MaxElementTagger<V>>(&self, examples: Vec<&str>, tagger: &Tagger) -> RustlingResult<ParsingAnalysis> {
+        let all_syms = self.rules.all_syms().into_iter().collect::<HashSet<_>>();
+        let rules_syms = self.rules.rules_syms().into_iter().collect::<HashSet<_>>();
+        let text_pattern_syms: HashSet<_> = all_syms.difference(&rules_syms).map(|s| *s).collect();
+
+        let mut used_syms = HashSet::new();
+        let mut failed_examples = vec![];
+
+        for (idx, example) in examples.iter().enumerate() {
+            let outputs = self.candidates(example, tagger)?
+                .into_iter()
+                .filter(|c| c.tagged)
+                .collect::<Vec<_>>();
+            
+            if outputs.len() != 1 {
+                failed_examples.push((idx, outputs.len()));
+            } else {
+                for sym in outputs[0].node.root_node.all_syms().into_iter() {
+                    used_syms.insert(*sym);
+                }
+            }
+        }
+        let unused_rules: Vec<_> = rules_syms.difference(&used_syms)
+                    .filter_map(|s| self.resolve_sym(&s))
+                    .collect();
+            
+        let unused_text_pattern: Vec<_> = text_pattern_syms.difference(&used_syms)
+                    .filter_map(|s| self.resolve_sym(&s))
+                    .collect();
+            
+        Ok(ParsingAnalysis {
+            rules_coverage: 1.0 - (unused_rules.len() as f32 / rules_syms.len() as f32),
+            text_pattern_coverage: 1.0 - (unused_text_pattern.len() as f32 / text_pattern_syms.len() as f32),
+            examples_coverage: 1.0 - (failed_examples.len() as f32 / examples.len() as f32),
+            unused_rules: unused_rules,
+            unused_text_pattern: unused_text_pattern,
+            failed_examples: failed_examples,
+        })
+    }
+
+    pub fn num_rules(&self) -> usize {
+        self.rules.rules_syms().into_iter().collect::<HashSet<_>>().len()
+    }
+
+    pub fn num_text_patterns(&self) -> usize {
+        let all_syms = self.rules.all_syms().into_iter().collect::<HashSet<_>>();
+        let rules_syms = self.rules.rules_syms().into_iter().collect::<HashSet<_>>();
+        let text_pattern_syms: HashSet<_> = all_syms.difference(&rules_syms).map(|s| *s).collect();
+        text_pattern_syms.len()
     }
 
     pub fn resolve_sym(&self, sym:&Sym) -> Option<&str> {
@@ -155,6 +229,7 @@ impl<V, Feat, Extractor> Parser<V, Feat, Extractor>
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
+    use fnv::FnvHashMap;
     use super::*;
     
     #[derive(Copy,Clone,Debug,PartialEq)]
@@ -241,24 +316,80 @@ mod tests {
         fn extract_payload(v: &MyValue) -> Option<usize> {
             None
         }
-        
     }
 
-    #[test]
-    fn test_with_enum_value() {
+    #[derive(Debug, Hash, Clone, Eq, PartialEq,Serialize,Deserialize)]
+    struct TestFeat;
+
+    impl Feature for TestFeat {}
+
+    struct TestFeatExtractor();
+
+    impl FeatureExtractor<MyValue, TestFeat> for TestFeatExtractor {
+        fn for_parsed_node(&self,
+                           node: &ParsedNode<MyValue>)
+                           -> Input<RuleId, TestFeat> {
+            self.for_node(&node.root_node)
+        }
+        fn for_node(&self, node: &Node<usize>) -> Input<RuleId, TestFeat> {
+            Input {
+                classifier_id: RuleId(node.rule_sym),
+                children: vec!(),
+                features: vec!(),
+            }
+        }
+    }
+
+    struct TestMaxElementTagger;
+
+    impl MaxElementTagger<MyValue> for TestMaxElementTagger {
+        type O = MyValue;
+        fn tag(&self, candidates: Vec<(ParsedNode<MyValue>, ParserMatch<MyValue>)>) -> Vec<Candidate<MyValue, MyValue>> {
+            let mut candidates = candidates;
+            candidates.sort_by(|a, b| {
+                a.1.byte_range.len().cmp(&b.1.byte_range.len())
+            });
+            candidates.into_iter()
+                .rev()
+                .enumerate()
+                .map(|(idx, c)| {
+                    Candidate {
+                        node: c.0,
+                        match_: c.1,
+                        tagged: idx == 0,
+                    }
+                })
+                .collect()
+        }
+    }
+
+    fn rules_with_enum_value() -> RuleSet<MyValue> {
         let b = RuleSetBuilder::new(BoundariesChecker::detailed(), BoundariesChecker::separated_alphanumeric_word());
         b.rule_1("int",
                  b.reg("\\d+").unwrap(),
                  |a| Ok(Int(usize::from_str(&*a.group(0))?)));
         b.rule_1("fp",
-                 b.reg("\\d+.\\d+").unwrap(),
+                 b.reg("\\d+\\.\\d+").unwrap(),
                  |a| Ok(F32(f32::from_str(&*a.group(0))?)));
         b.rule_3("pow",
                  dim!(F32),
                  b.reg("\\^").unwrap(),
                  dim!(Int),
                  |a, _, b| Ok(F32(a.value().0.powi(b.value().0 as i32))));
-        let rule_set = b.build();
+        b.build()
+    }
+
+    fn parser() -> Parser<MyValue, TestFeat, TestFeatExtractor> {
+        Parser {
+            rules: rules_with_enum_value(),
+            model: Model { classifiers: FnvHashMap::default() },
+            extractor: TestFeatExtractor(),
+        }
+    }
+
+    #[test]
+    fn test_with_enum_value() {
+        let rule_set = rules_with_enum_value();
         let results = rule_set.apply_all("foo: 1.5^2").unwrap();
         let values: Vec<_> = results.into_iter().map(|pn| pn.value).collect();
         assert_eq!(vec![MyValue::UI(Int(1)),
@@ -269,35 +400,30 @@ mod tests {
                    values);
     }
 
-    // #[test]
-    // fn test_filter_overlap() {
-    //     let matches = vec![
-    //         ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 1, probalog: 1.0, latent: true },
-    //         ParserMatch { byte_range: Range(1, 4), char_range: Range(1, 4), value: 2, probalog: 1.0, latent: true },
-    //     ];
-
-    //     assert_eq!(vec![1], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
-
-    //     let matches = vec![
-    //         ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 1, probalog: 1.0, latent: true },
-    //         ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 2, probalog: 1.0, latent: true },
-    //     ];
-
-    //     assert_eq!(vec![1], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
-
-    //     let matches = vec![
-    //         ParserMatch { byte_range: Range(3, 4), char_range: Range(3, 4), value: 2, probalog: 1.0, latent: true },
-    //         ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 1, probalog: 1.0, latent: true },
-    //     ];
-
-    //     assert_eq!(vec![1, 2], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
-
-    //     let matches = vec![
-    //         ParserMatch { byte_range: Range(3, 5), char_range: Range(3, 5), value: 1, probalog: 1.0, latent: true },
-    //         ParserMatch { byte_range: Range(0, 3), char_range: Range(0, 3), value: 2, probalog: 1.0, latent: true },
-    //         ParserMatch { byte_range: Range(2, 4), char_range: Range(2, 4), value: 3, probalog: 1.0, latent: true },
-    //     ];
-
-    //     assert_eq!(vec![2, 1], filter_overlap(matches.clone()).iter().map(|a| a.value).collect::<Vec<_>>());
-    // }
+    #[test]
+    fn test_parsing_analysis() {
+        let parser = parser();
+        assert_eq!(ParsingAnalysis {
+                rules_coverage: 0.6666666,
+                text_pattern_coverage: 0.6666666,
+                examples_coverage: 0.5,
+                unused_rules: vec!["pow"],
+                unused_text_pattern: vec!["\\^"],
+                failed_examples: vec![
+                        (0, 0), 
+                        (1, 0),
+                        ],
+                }, 
+            parser.analyse(vec!["example that should fail", "another one", "foo: 1.5", "foo: 2"], &TestMaxElementTagger).unwrap()
+        );
+        assert_eq!(ParsingAnalysis {
+                rules_coverage: 1.0,
+                text_pattern_coverage: 1.0,
+                examples_coverage: 0.6666666,
+                unused_rules: vec![],
+                unused_text_pattern: vec![],
+                failed_examples: vec![(0, 0)],}, 
+            parser.analyse(vec!["example that should fail", "foo: 1.5^2", "foo: 2"], &TestMaxElementTagger).unwrap()
+        );
+    }
 }
