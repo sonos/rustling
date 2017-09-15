@@ -1,4 +1,7 @@
 # Rustling
+[![Build Status](https://travis-ci.org/snipsco/rustling.svg?branch=develop)](https://travis-ci.org/snipsco/rustling)
+
+
 Rust port of https://github.com/facebookincubator/duckling
 
 # License
