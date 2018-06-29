@@ -986,7 +986,7 @@ use rule::*;
     fn test_integer_numeric_en_rule() {
         let mut st = ::SymbolTable::default();
         let ten = st.sym("ten");
-        let rule = Rule1::new(ten, (reg!(st, usize, "ten")), |_| Ok(10usize));
+        let rule = Rule1::new(ten, reg!(st, usize, "ten"), |_| Ok(10usize));
         assert_eq!(vec![Text::new(svec![Range(8, 11)], Range(8, 11), ten)],
                    rule.matches(&Stash::default(), "foobar: ten").unwrap().matches);
         assert_eq!(vec![Text::new(svec![Range(8, 11)], Range(8, 11), ten),
@@ -1035,7 +1035,7 @@ use rule::*;
         use std::str::FromStr;
         let mut st = ::SymbolTable::default();
         let rule_int = Rule1::new(st.sym("int"),
-                                  (reg!(st, usize, "\\d+")),
+                                  reg!(st, usize, "\\d+"),
                                   |a| Ok(usize::from_str(&*a.group(0))?));
         assert_eq!(svec4![ParsedNode::new(st.sym("int"),
                                           42,
