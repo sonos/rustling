@@ -49,7 +49,7 @@ pub fn train<V, F, E>(rules: &RuleSet<V>, examples: Vec<Example<V>>, feature_ext
                 .partition::<Vec<_>, _>(|candidate| ex.predicate.check(&candidate));
         // - example sanity check
         if positive_parsed_nodes.is_empty() {
-            Err(format!("example: {:?} matched no rule", ex.text))?
+            Err(format_err!("example: {:?} matched no rule", ex.text))?
         }
 
         // - expand parse nodes to nodes, according to the partition

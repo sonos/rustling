@@ -1,5 +1,5 @@
 #[macro_use]
-extern crate error_chain;
+extern crate failure;
 pub extern crate regex;
 extern crate smallvec;
 extern crate string_interner;
@@ -26,25 +26,13 @@ use rule::TerminalRule;
 use pattern::Pattern;
 use pattern::TerminalPattern;
 pub use range::Range;
-pub use rule::rule_errors::*;
+pub use rule::{RuleResult, RuleError};
 pub use builder::RuleSetBuilder;
 pub use helpers::BoundariesChecker;
 pub use stash::{StashIndexable, InnerStashIndexable};
 
-use errors::*;
-pub mod errors {
-    error_chain! {
-        types {
-            CoreError, CoreErrorKind, CoreResultExit, CoreResult;
-        }
-        foreign_links {
-            Regex(::regex::Error);
-        }
-        errors {
-            ProductionRuleError(t: String)
-        }
-    }
-}
+pub type CoreResult<T> = Result<T, ::failure::Error>;
+
 
 pub trait AttemptFrom<V>: Sized {
     fn attempt_from(v: V) -> Option<Self>;

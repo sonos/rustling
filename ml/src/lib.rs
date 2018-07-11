@@ -1,5 +1,5 @@
 #[macro_use]
-extern crate error_chain;
+extern crate failure;
 extern crate fnv;
 #[macro_use]
 extern crate serde_derive;
@@ -10,15 +10,8 @@ use std::fmt::Debug;
 use fnv::FnvHashMap;
 use fnv::FnvHashSet;
 
-use errors::*;
 
-pub mod errors {
-    error_chain! {
-        types {
-            MLError, MLErrorKind, MLResultExt, MLResult;
-        }
-    }
-}
+pub type MLResult<T> = Result<T, ::failure::Error>;
 
 pub trait ClassifierId: Eq + hash::Hash + Clone + Debug {}
 pub trait ClassId: Eq + hash::Hash + Clone + Debug {}
@@ -99,10 +92,10 @@ impl<Id: ClassId, Feat: Feature> Classifier<Id, Feat> {
     }
 
     pub fn classify(&self, bag_of_features: &FnvHashMap<Feat, usize>) -> MLResult<(Id, f32)> {
-        Ok(self.scores(bag_of_features)
+        self.scores(bag_of_features)
             .into_iter()
             .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(::std::cmp::Ordering::Equal))
-            .ok_or("no classes in classifier")?)
+            .ok_or(format_err!("no classes in classifier"))
     }
 
     pub fn train(examples: &Vec<(FnvHashMap<Feat, usize>, Id)>) -> Classifier<Id, Feat> {
