@@ -1,31 +1,16 @@
 use ::*;
 use pattern::*;
-use errors::*;
-use rule::rule_errors::*;
 use smallvec::SmallVec;
 
-pub mod rule_errors {
-    error_chain! {
-        types {
-            RuleError, RuleErrorKind, RuleResultExt, RuleResult;
-        }
 
-        foreign_links {
-            NumParseInt(::std::num::ParseIntError);
-            NumParseFloat(::std::num::ParseFloatError);
-            Regex(::regex::Error);
-        }
-
-        errors {
-            Invalid
-        }
-    }
+#[derive(Debug, Fail)]
+pub enum RuleError {
+    #[fail(display = "invalid rule")]
+    Invalid,
 }
 
-fn make_production_error(s: RuleError) -> CoreError {
-    CoreErrorKind::ProductionRuleError(format!("{:?}", s)).into()
+pub type RuleResult<T> = Result<T, ::failure::Error>;
 
-}
 
 macro_rules! svec {
     ($($item:expr),*) => { {
@@ -157,8 +142,12 @@ impl<PA, V, StashValue, F> Rule<StashValue> for Rule1<PA, V, StashValue, F>
                                                     payload,
                                                     nodes)))
                         }
-                        Err(RuleError(RuleErrorKind::Invalid, _)) => None,
-                        Err(e) => Some(Err(make_production_error(e))),
+                        Err(e) => {
+                            match e.downcast::<RuleError>() {
+                                Ok(RuleError::Invalid) => None,
+                                Err(e) => Some(Err(e)),
+                            }
+                        }
                     }
                 } else {
                     None
@@ -253,8 +242,12 @@ impl<PA, PB, V, StashValue, F> Rule<StashValue>
                                                     payload,
                                                     nodes)))
                         }
-                        Err(RuleError(RuleErrorKind::Invalid, _)) => None,
-                        Err(e) => Some(Err(make_production_error(e))),
+                        Err(e) => {
+                            match e.downcast::<RuleError>() {
+                                Ok(RuleError::Invalid) => None,
+                                Err(e) => Some(Err(e)),
+                            }
+                        }
                     }
                 } else {
                     None
@@ -377,8 +370,12 @@ impl<PA, PB, PC, V, StashValue, F> Rule<StashValue> for Rule3<PA, PB, PC, V, Sta
                                         nodes)
                               ))
                         },
-                        Err(RuleError(RuleErrorKind::Invalid, _)) => None,
-                        Err(e) => Some(Err(make_production_error(e))),
+                        Err(e) => {
+                            match e.downcast::<RuleError>() {
+                                Ok(RuleError::Invalid) => None,
+                                Err(e) => Some(Err(e)),
+                            }
+                        }
                     }
                 } else {
                     None
@@ -513,8 +510,12 @@ impl<PA, PB, PC, PD, V, StashValue, F> Rule<StashValue> for Rule4<PA, PB, PC, PD
                                         nodes)
                           ))
                         },
-                        Err(RuleError(RuleErrorKind::Invalid, _)) => None,
-                        Err(e) => Some(Err(make_production_error(e))),
+                        Err(e) => {
+                            match e.downcast::<RuleError>() {
+                                Ok(RuleError::Invalid) => None,
+                                Err(e) => Some(Err(e)),
+                            }
+                        }
                     }
                 } else {
                     None
@@ -664,8 +665,12 @@ impl<PA, PB, PC, PD, PE, V, StashValue, F> Rule<StashValue> for Rule5<PA, PB, PC
                                         nodes))
                           )
                         },
-                        Err(RuleError(RuleErrorKind::Invalid, _)) => None,
-                        Err(e) => Some(Err(make_production_error(e))),
+                        Err(e) => {
+                            match e.downcast::<RuleError>() {
+                                Ok(RuleError::Invalid) => None,
+                                Err(e) => Some(Err(e)),
+                            }
+                        }
                     }
                 } else {
                     None
@@ -824,8 +829,12 @@ impl<PA, PB, PC, PD, PE, PF, V, StashValue, F> Rule<StashValue> for Rule6<PA, PB
                           let payload = v.extract_payload();
                           Some(Ok(ParsedNode::new(self.sym, v.clone().into(), byte_range, payload, nodes)))
                         },
-                        Err(RuleError(RuleErrorKind::Invalid, _)) => None,
-                        Err(e) => Some(Err(make_production_error(e))),
+                        Err(e) => {
+                            match e.downcast::<RuleError>() {
+                                Ok(RuleError::Invalid) => None,
+                                Err(e) => Some(Err(e)),
+                            }
+                        }
                     }
                 } else {
                     None

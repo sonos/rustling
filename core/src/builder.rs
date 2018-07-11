@@ -5,7 +5,7 @@ use pattern;
 use helpers::BoundariesChecker;
 use rule::{Rule, TerminalRule, Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, RuleProductionArg};
 
-use rule::rule_errors::*;
+use rule::RuleResult;
 
 pub struct RuleSetBuilder<StashValue: NodePayload+StashIndexable> {
     symbols: cell::RefCell<SymbolTable>,

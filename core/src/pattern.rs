@@ -3,7 +3,7 @@ use std::rc;
 
 use smallvec::SmallVec;
 
-use errors::*;
+use CoreResult;
 use {AttemptFrom, Sym, Node, ParsedNode, SendSyncPhantomData, Stash, StashIndexable, InnerStashIndexable, NodePayload, ParsingStatus};
 use helpers::BoundariesChecker;
 use range::Range;
@@ -149,7 +149,7 @@ impl<StashValue: NodePayload+StashIndexable> Pattern<StashValue> for TextPattern
         for cap in self.pattern.captures_iter(&sentence) {
             let full = cap.get(0)
                 .ok_or_else(|| {
-                                format!("No capture for regexp {} in rule {:?} for sentence: {}",
+                                format_err!("No capture for regexp {} in rule {:?} for sentence: {}",
                                         self.pattern,
                                         self.pattern_sym,
                                         sentence)
@@ -161,7 +161,7 @@ impl<StashValue: NodePayload+StashIndexable> Pattern<StashValue> for TextPattern
             let mut groups = SmallVec::new();
             for (ix, group) in cap.iter().enumerate() {
                 let group = group.ok_or_else(|| {
-                            format!("No capture for regexp {} in rule {:?}, group number {} in \
+                            format_err!("No capture for regexp {} in rule {:?}, group number {} in \
                                      capture: {}",
                                     self.pattern,
                                     self.pattern_sym,
@@ -219,7 +219,7 @@ impl<StashValue: NodePayload+StashIndexable> Pattern<StashValue> for TextNegLHPa
         for cap in self.pattern.captures_iter(&sentence) {
             let full = cap.get(0)
                 .ok_or_else(|| {
-                                format!("No capture for regexp {} in rule {:?} for sentence: {}",
+                                format_err!("No capture for regexp {} in rule {:?} for sentence: {}",
                                         self.pattern,
                                         self.pattern_sym,
                                         sentence)
@@ -236,7 +236,7 @@ impl<StashValue: NodePayload+StashIndexable> Pattern<StashValue> for TextNegLHPa
             let mut groups = SmallVec::new();
             for (ix, group) in cap.iter().enumerate() {
                 let group = group.ok_or_else(|| {
-                            format!("No capture for regexp {} in rule {:?}, group number {} in \
+                            format_err!("No capture for regexp {} in rule {:?}, group number {} in \
                                      capture: {}",
                                     self.pattern,
                                     self.pattern_sym,

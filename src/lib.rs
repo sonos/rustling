@@ -1,5 +1,5 @@
 #[macro_use]
-extern crate error_chain;
+extern crate failure;
 extern crate fnv;
 extern crate rustling_core;
 extern crate rustling_ml;
@@ -11,10 +11,9 @@ use std::collections::HashSet;
 pub use rustling_core::regex;
 pub use rustling_core::{AttemptFrom, AttemptInto, Sym, Node, ParsedNode, Range, RuleSet,
                         RuleSetBuilder, NodePayload, BoundariesChecker, StashIndexable, InnerStashIndexable};
-pub use rustling_core::{RuleError, RuleErrorKind, RuleResult};
+pub use rustling_core::{RuleError, RuleResult};
 pub use rustling_ml::{ClassId, Classifier, ClassifierId, Feature, Input, Model};
 pub use train::{Check, Example};
-pub use errors::*;
 
 #[macro_use]
 pub mod macros;
@@ -26,23 +25,7 @@ pub mod core {
     pub use rustling_core::rule::{Rule1, Rule2, Rule3, Rule4, Rule5, Rule6};
 }
 
-pub mod errors {
-    error_chain! {
-        types {
-            RustlingError, RustlingErrorKind, RustlingResultExt, RustlingResult;
-        }
-        links {
-            Core(::rustling_core::errors::CoreError, ::rustling_core::errors::CoreErrorKind);
-            ML(::rustling_ml::errors::MLError, ::rustling_ml::errors::MLErrorKind);
-        }
-        foreign_links {
-            Regex(::regex::Error);
-        }
-        errors {
-            ProductionRuleError(t: String)
-        }
-    }
-}
+pub type RustlingResult<T> = Result<T, ::failure::Error>;
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq,Serialize,Deserialize)]
 pub struct RuleId(pub Sym);
