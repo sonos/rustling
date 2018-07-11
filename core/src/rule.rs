@@ -41,6 +41,10 @@ impl<'a, V: NodePayload> RuleProductionArg<'a, Text<V>> {
         let g = self.match_.groups[ix];
         &self.sentence[g.0..g.1]
     }
+
+    pub fn num_groups(&self) -> usize {
+        self.match_.groups.len()
+    }
 }
 
 impl<'a, V: NodePayload> RuleProductionArg<'a, ParsedNode<V>> {
