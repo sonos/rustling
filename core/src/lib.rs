@@ -3,36 +3,32 @@ extern crate failure;
 pub extern crate regex;
 extern crate smallvec;
 extern crate string_interner;
-#[macro_use]
-extern crate serde_derive;
 
-use string_interner::StringInterner;
-
-use smallvec::SmallVec;
-use std::{rc, cell};
-use std::fmt::Debug;
-use std::collections::HashSet;
-
-pub mod pattern;
-pub mod rule;
 mod builder;
-mod range;
 mod helpers;
+pub mod pattern;
+mod range;
+pub mod rule;
 mod stash;
 
-use stash::Stash;
-use rule::Rule;
-use rule::TerminalRule;
+pub use builder::RuleSetBuilder;
+pub use helpers::BoundariesChecker;
 use pattern::Pattern;
 use pattern::TerminalPattern;
 pub use range::Range;
-pub use rule::{RuleResult, RuleError};
-pub use builder::RuleSetBuilder;
-pub use helpers::BoundariesChecker;
-pub use stash::{StashIndexable, InnerStashIndexable};
+use rule::Rule;
+use rule::TerminalRule;
+pub use rule::{RuleError, RuleResult};
+use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
+use stash::Stash;
+pub use stash::{InnerStashIndexable, StashIndexable};
+use std::collections::HashSet;
+use std::fmt::Debug;
+use std::{cell, rc};
+use string_interner::StringInterner;
 
 pub type CoreResult<T> = Result<T, ::failure::Error>;
-
 
 pub trait AttemptFrom<V>: Sized {
     fn attempt_from(v: V) -> Option<Self>;
@@ -43,8 +39,9 @@ pub trait AttemptInto<T>: Sized {
 }
 
 impl<S, T> AttemptInto<T> for S
-    where S: Clone,
-          T: AttemptFrom<S>
+where
+    S: Clone,
+    T: AttemptFrom<S>,
 {
     fn attempt_into(self) -> Option<T> {
         T::attempt_from(self)
@@ -58,9 +55,19 @@ pub trait NodePayload: Clone {
 
 pub type ChildrenNodes<Payload> = SmallVec<[rc::Rc<Node<Payload>>; 2]>;
 
-#[derive(Copy,Ord,Eq,Clone,PartialEq,PartialOrd,Debug,Hash,Serialize,Deserialize)]
+#[derive(Copy, Ord, Eq, Clone, PartialEq, PartialOrd, Debug, Hash, Serialize, Deserialize)]
 pub struct Sym(usize);
-impl string_interner::NonNegative for Sym {}
+
+impl string_interner::Symbol for Sym {
+    fn from_usize(val: usize) -> Self {
+        Sym(val)
+    }
+
+    fn to_usize(self) -> usize {
+        self.0
+    }
+}
+
 impl From<usize> for Sym {
     fn from(it: usize) -> Sym {
         Sym(it)
@@ -82,7 +89,8 @@ impl Default for SymbolTable {
 
 impl SymbolTable {
     pub fn sym<T>(&mut self, val: T) -> Sym
-        where T: Into<String> + AsRef<str>
+    where
+        T: Into<String> + AsRef<str>,
     {
         self.0.get_or_intern(val)
     }
@@ -98,7 +106,7 @@ impl ParsingStatus {
     pub fn is_exit(&self) -> bool {
         match self {
             &ParsingStatus::Exit => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -118,14 +126,19 @@ pub struct Node<Payload: Clone> {
     pub children: ChildrenNodes<Payload>,
 }
 
-impl<Payload: Clone>  Node<Payload> {
-    fn new(sym: Sym, byte_range: Range, payload: Option<Payload>, children: ChildrenNodes<Payload>) -> rc::Rc<Node<Payload>> {
+impl<Payload: Clone> Node<Payload> {
+    fn new(
+        sym: Sym,
+        byte_range: Range,
+        payload: Option<Payload>,
+        children: ChildrenNodes<Payload>,
+    ) -> rc::Rc<Node<Payload>> {
         rc::Rc::new(Node {
-                        rule_sym: sym,
-                        byte_range: byte_range,
-                        payload: payload,
-                        children: children,
-                    })
+            rule_sym: sym,
+            byte_range,
+            payload,
+            children,
+        })
     }
 
     pub fn height(&self) -> usize {
@@ -137,7 +150,7 @@ impl<Payload: Clone>  Node<Payload> {
         num_children + 1
     }
 
-    pub fn all_syms<'a>(&'a self) -> HashSet<&'a Sym> {
+    pub fn all_syms(&self) -> HashSet<&Sym> {
         let mut hash_set = HashSet::new();
         hash_set.insert(&self.rule_sym);
         for child in self.children.iter() {
@@ -156,7 +169,13 @@ pub struct ParsedNode<V: NodePayload> {
 }
 
 impl<V: NodePayload> ParsedNode<V> {
-    fn new(sym: Sym, v: V, r: Range, payload: Option<V::Payload>, children: ChildrenNodes<V::Payload>) -> ParsedNode<V> {
+    fn new(
+        sym: Sym,
+        v: V,
+        r: Range,
+        payload: Option<V::Payload>,
+        children: ChildrenNodes<V::Payload>,
+    ) -> ParsedNode<V> {
         ParsedNode {
             root_node: Node::new(sym, r, payload, children),
             value: v,
@@ -164,16 +183,19 @@ impl<V: NodePayload> ParsedNode<V> {
     }
 }
 
-pub struct RuleSet<StashValue: NodePayload+StashIndexable> {
+pub struct RuleSet<StashValue: NodePayload + StashIndexable> {
     symbols: SymbolTable,
-    composition_rules: Vec<Box<Rule<StashValue>>>,
-    terminal_rules: Vec<Box<TerminalRule<StashValue>>>,
+    composition_rules: Vec<Box<dyn Rule<StashValue>>>,
+    terminal_rules: Vec<Box<dyn TerminalRule<StashValue>>>,
     match_boundaries: BoundariesChecker,
 }
 
-impl<StashValue: NodePayload+StashIndexable> RuleSet<StashValue> {
-
-    fn apply_terminal_rules(&self, stash: &mut Stash<StashValue>, sentence: &str) -> CoreResult<()> {
+impl<StashValue: NodePayload + StashIndexable> RuleSet<StashValue> {
+    fn apply_terminal_rules(
+        &self,
+        stash: &mut Stash<StashValue>,
+        sentence: &str,
+    ) -> CoreResult<()> {
         let mut produced_nodes = vec![];
         for rule in &self.terminal_rules {
             produced_nodes.extend(rule.apply(stash, sentence)?.nodes);
@@ -182,7 +204,12 @@ impl<StashValue: NodePayload+StashIndexable> RuleSet<StashValue> {
         Ok(())
     }
 
-    fn apply_composition_rules(&self, stash: &mut Stash<StashValue>, sentence: &str, rules_mask_status: &mut Vec<ParsingStatus>) -> CoreResult<()> {
+    fn apply_composition_rules(
+        &self,
+        stash: &mut Stash<StashValue>,
+        sentence: &str,
+        rules_mask_status: &mut Vec<ParsingStatus>,
+    ) -> CoreResult<()> {
         let mut produced_nodes = vec![];
         for (idx, rule) in self.composition_rules.iter().enumerate() {
             if rules_mask_status[idx].is_continue() {
@@ -199,12 +226,12 @@ impl<StashValue: NodePayload+StashIndexable> RuleSet<StashValue> {
         let iterations_max = 10;
         let max_stash_size = 600;
         let mut stash = Stash::default();
-        
+
         self.apply_terminal_rules(&mut stash, sentence)?;
         let mut previous_stash_size = stash.len();
 
-        let mut rules_mask_status = vec!(ParsingStatus::Continue; self.composition_rules.len());
-        
+        let mut rules_mask_status = vec![ParsingStatus::Continue; self.composition_rules.len()];
+
         for _ in 0..iterations_max {
             self.apply_composition_rules(&mut stash, sentence, &mut rules_mask_status)?;
             if stash.len() <= previous_stash_size || stash.len() > max_stash_size {
@@ -212,10 +239,16 @@ impl<StashValue: NodePayload+StashIndexable> RuleSet<StashValue> {
             }
             previous_stash_size = stash.len();
         }
-        Ok(stash.into_iter().filter(|pn| self.match_boundaries.check(sentence, pn.root_node.byte_range)).collect())
+        Ok(stash
+            .into_iter()
+            .filter(|pn| {
+                self.match_boundaries
+                    .check(sentence, pn.root_node.byte_range)
+            })
+            .collect())
     }
 
-    pub fn resolve_sym(&self, sym:&Sym) -> Option<&str> {
+    pub fn resolve_sym(&self, sym: &Sym) -> Option<&str> {
         self.symbols.0.resolve(*sym)
     }
 
@@ -224,13 +257,15 @@ impl<StashValue: NodePayload+StashIndexable> RuleSet<StashValue> {
     }
 
     pub fn rules_syms(&self) -> Vec<Sym> {
-        self.composition_rules.iter().map(|r| r.rule_sym())
+        self.composition_rules
+            .iter()
+            .map(|r| r.rule_sym())
             .chain(self.terminal_rules.iter().map(|r| r.rule_sym()))
             .collect()
     }
 }
 
-#[derive(Copy,Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct SendSyncPhantomData<T>(::std::marker::PhantomData<T>);
 unsafe impl<T> Send for SendSyncPhantomData<T> {}
 unsafe impl<T> Sync for SendSyncPhantomData<T> {}

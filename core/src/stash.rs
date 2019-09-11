@@ -1,17 +1,17 @@
-use ::{ParsedNode, NodePayload, AttemptFrom};
-use std::hash::Hash;
+use crate::pattern::Match;
+use crate::{AttemptFrom, NodePayload, ParsedNode};
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::slice::Iter;
 use std::vec::IntoIter;
-use pattern::Match;
 
 pub trait StashIndexable {
-    type Index: Hash+Eq;
+    type Index: Hash + Eq;
     fn index(&self) -> Self::Index;
 }
 
 pub trait InnerStashIndexable {
-    type Index: Hash+Eq;
+    type Index: Hash + Eq;
     fn index() -> Self::Index;
 }
 
@@ -29,7 +29,7 @@ impl<S: StashIndexable + NodePayload> Default for Stash<S> {
     }
 }
 
-impl<S: StashIndexable + NodePayload> Stash<S>{
+impl<S: StashIndexable + NodePayload> Stash<S> {
     pub fn extend(&mut self, nodes: Vec<ParsedNode<S>>) {
         for node in nodes.into_iter() {
             self.push(node);
@@ -45,33 +45,42 @@ impl<S: StashIndexable + NodePayload> Stash<S>{
             .push(node_position);
     }
 
-    pub fn filter<V, F>(&self, predicate: F) -> Vec<ParsedNode<V>> 
-        where V: InnerStashIndexable<Index=S::Index> + NodePayload<Payload=S::Payload> + AttemptFrom<S>,
-              F: Fn(&V) -> bool,
+    pub fn filter<V, F>(&self, predicate: F) -> Vec<ParsedNode<V>>
+    where
+        V: InnerStashIndexable<Index = S::Index>
+            + NodePayload<Payload = S::Payload>
+            + AttemptFrom<S>,
+        F: Fn(&V) -> bool,
     {
-        self.index.get(&V::index())
+        self.index
+            .get(&V::index())
             .map(|nodes| {
-                nodes.iter().filter_map(|position| {
-                    let ref node = self.values[*position];
-                    if let Some(v) = V::attempt_from(node.value.clone()) {
-                               if (predicate)(&v) {
-                                   Some(ParsedNode::new(node.root_node.rule_sym,
-                                                        v,
-                                                        node.byte_range(),
-                                                        node.root_node.payload.clone(),
-                                                        node.root_node.children.clone()))
-                               } else {
-                                   None
-                               }
-                    } else {
-                        None
-                    }
-                }).collect()
+                nodes
+                    .iter()
+                    .filter_map(|position| {
+                        let ref node = self.values[*position];
+                        if let Some(v) = V::attempt_from(node.value.clone()) {
+                            if (predicate)(&v) {
+                                Some(ParsedNode::new(
+                                    node.root_node.rule_sym,
+                                    v,
+                                    node.byte_range(),
+                                    node.root_node.payload.clone(),
+                                    node.root_node.children.clone(),
+                                ))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
             })
             .unwrap_or(vec![])
     }
 
-    pub fn iter(&self) ->  Iter<ParsedNode<S>> {
+    pub fn iter(&self) -> Iter<ParsedNode<S>> {
         self.values.iter()
     }
     pub fn into_iter(self) -> IntoIter<ParsedNode<S>> {
@@ -83,7 +92,7 @@ impl<S: StashIndexable + NodePayload> Stash<S>{
     }
 
     #[cfg(test)]
-    pub fn values<'a>(&'a self) -> &'a Vec<ParsedNode<S>> {
+    pub fn values(&self) -> &Vec<ParsedNode<S>> {
         self.values.as_ref()
     }
 }
