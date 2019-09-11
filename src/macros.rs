@@ -27,14 +27,6 @@ macro_rules! enum_kind {
             $( $varname ),*
         }
 
-        impl $kindname {
-            pub fn all() -> Vec<$kindname> {
-                vec![
-                    $( $kindname::$varname ),*
-                ]
-            }
-        }
-
         impl ::std::str::FromStr for $kindname {
             type Err=String;
             fn from_str(s: &str) -> ::std::result::Result<$kindname, Self::Err> {

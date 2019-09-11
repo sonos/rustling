@@ -1,8 +1,8 @@
-use std::cmp::{PartialOrd, Ordering};
+use std::cmp::{Ordering, PartialOrd};
 
 /// Represent a semi-inclusive range of position, in bytes, in the matched
 /// sentence.
-#[derive(PartialEq,Clone,Debug,Copy,Hash,Eq)]
+#[derive(PartialEq, Clone, Debug, Copy, Hash, Eq)]
 pub struct Range(pub usize, pub usize);
 
 impl Range {
@@ -11,17 +11,23 @@ impl Range {
     }
 
     pub fn char_range(&self, string: &str) -> Range {
-        Range(convert_char_index(string, self.0), convert_char_index(string, self.1))
+        Range(
+            convert_char_index(string, self.0),
+            convert_char_index(string, self.1),
+        )
     }
 
     pub fn byte_range(&self, string: &str) -> Range {
-        Range(convert_byte_index(string, self.0), convert_byte_index(string, self.1))
+        Range(
+            convert_byte_index(string, self.0),
+            convert_byte_index(string, self.1),
+        )
     }
 
     pub fn len(&self) -> usize {
         self.1 - self.0
     }
-    
+
     pub fn is_disjoint(&self, other: &Self) -> bool {
         self.0 >= other.1 || other.0 >= self.1
     }

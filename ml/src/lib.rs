@@ -1,15 +1,11 @@
 #[macro_use]
 extern crate failure;
 extern crate fnv;
-#[macro_use]
-extern crate serde_derive;
 
-use std::hash;
+use fnv::{FnvHashMap, FnvHashSet};
 use std::fmt::Debug;
-
-use fnv::FnvHashMap;
-use fnv::FnvHashSet;
-
+use std::hash;
+use serde::{Deserialize, Serialize};
 
 pub type MLResult<T> = Result<T, ::failure::Error>;
 
@@ -23,17 +19,17 @@ pub struct Input<Id: ClassifierId, Feat: Feature> {
     pub children: Vec<Input<Id, Feat>>,
 }
 
-#[derive(PartialEq,Debug,Clone,Serialize,Deserialize)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct Model<Id: ClassifierId, Class: ClassId, Feat: Feature> {
     pub classifiers: FnvHashMap<Id, Classifier<Class, Feat>>,
 }
 
-#[derive(PartialEq,Debug,Clone,Serialize,Deserialize)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct Classifier<Id: ClassId, Feat: Feature> {
     pub classes: FnvHashMap<Id, ClassInfo<Feat>>,
 }
 
-#[derive(PartialEq,Debug,Clone,Serialize,Deserialize)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ClassInfo<Feat: Feature> {
     pub example_count: usize,
     pub unk_probalog: f32,
@@ -55,7 +51,8 @@ impl<Id: ClassifierId, Class: ClassId, Feat: Feature> Model<Id, Class, Feat> {
             *counter += 1;
         }
 
-        let mut probalog = classifier.scores(&bag_of_features)
+        let mut probalog = classifier
+            .scores(&bag_of_features)
             .iter()
             .find(|item| &item.0 == target)
             .map(|item| item.1)
@@ -67,16 +64,17 @@ impl<Id: ClassifierId, Class: ClassId, Feat: Feature> Model<Id, Class, Feat> {
     }
 }
 
-
 impl<Id: ClassId, Feat: Feature> Classifier<Id, Feat> {
     // max(log(π(Prob(feat|class)^count)*Prob(class))) =
     // max(sum(logprob(feat|class)*count + logprob(class))
 
     pub fn scores(&self, bag_of_features: &FnvHashMap<Feat, usize>) -> Vec<(Id, f32)> {
-        let mut scores: Vec<_> = self.classes
+        let mut scores: Vec<_> = self
+            .classes
             .iter()
             .map(|(cid, cinfo)| {
-                let probalog: f32 = bag_of_features.iter()
+                let probalog: f32 = bag_of_features
+                    .iter()
                     .map(|(feat, count)| {
                         *count as f32 * cinfo.feat_probalog.get(feat).unwrap_or(&cinfo.unk_probalog)
                     })
@@ -103,7 +101,9 @@ impl<Id: ClassId, Feat: Feature> Classifier<Id, Feat> {
         let total_examples = examples.len();
         let mut all_features = FnvHashSet::default();
         for &(ref features, ref class) in examples {
-            let mut data = classes.entry(class.clone()).or_insert_with(|| (0, FnvHashMap::default()));
+            let mut data = classes
+                .entry(class.clone())
+                .or_insert_with(|| (0, FnvHashMap::default()));
             data.0 += 1;
             for (feat, count) in features {
                 all_features.insert(feat.clone());
@@ -111,27 +111,30 @@ impl<Id: ClassId, Feat: Feature> Classifier<Id, Feat> {
             }
         }
         let total_features = all_features.len();
-        let class_infos = classes.into_iter()
+        let class_infos = classes
+            .into_iter()
             .map(|(k, v)| {
                 let smooth_denom: f32 = (total_features + v.1.values().sum::<usize>()) as f32;
-                let feat_probalog = v.1
-                    .into_iter()
-                    .map(|(k, v)| (k, f32::ln((v as f32 + 1 as f32) / smooth_denom)))
-                    .collect();
-                (k,
-                 ClassInfo {
-                     example_count: v.0,
-                     class_probalog: f32::ln(v.0 as f32 / total_examples as f32),
-                     unk_probalog: f32::ln(1.0 / smooth_denom),
-                     feat_probalog: feat_probalog,
-                 })
+                let feat_probalog =
+                    v.1.into_iter()
+                        .map(|(k, v)| (k, f32::ln((v as f32 + 1 as f32) / smooth_denom)))
+                        .collect();
+                (
+                    k,
+                    ClassInfo {
+                        example_count: v.0,
+                        class_probalog: f32::ln(v.0 as f32 / total_examples as f32),
+                        unk_probalog: f32::ln(1.0 / smooth_denom),
+                        feat_probalog: feat_probalog,
+                    },
+                )
             })
             .collect();
-        Classifier { classes: class_infos }
+        Classifier {
+            classes: class_infos,
+        }
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -150,7 +153,7 @@ mod tests {
         ($($k:expr => $v:expr),+,) => { hmap!($($k => $v),+) }
     );
 
-    #[derive(Eq,PartialEq,Debug,Hash,Clone)]
+    #[derive(Eq, PartialEq, Debug, Hash, Clone)]
     enum Species {
         Cat,
         Dog,
@@ -158,7 +161,7 @@ mod tests {
     }
     impl ClassId for Species {}
 
-    #[derive(Eq,PartialEq,Debug,Hash,Clone)]
+    #[derive(Eq, PartialEq, Debug, Hash, Clone)]
     enum Friend {
         Cat,
         Dog,
@@ -209,20 +212,35 @@ mod tests {
 
     #[test]
     fn test_train() {
-        let examples = vec! {
-            (hmap!(Friend::Dog => 1, Friend::Human => 1, Friend::Cat => 1), Species::Dog),
+        let examples = vec![
+            (
+                hmap!(Friend::Dog => 1, Friend::Human => 1, Friend::Cat => 1),
+                Species::Dog,
+            ),
             (hmap!(Friend::Dog => 1), Species::Dog),
             (hmap!(Friend::Dog => 1, Friend::Human => 1), Species::Dog),
             (hmap!(Friend::Human => 1), Species::Dog),
             (hmap!(Friend::Fish => 1, Friend::Cat => 1), Species::Cat),
             (hmap!(Friend::Cat => 1), Species::Cat),
             (hmap!(Friend::Fish => 1), Species::Cat),
-            (hmap!(Friend::Human => 1, Friend::Fish => 1, Friend::Cat => 1), Species::Cat),
-            (hmap!(Friend::Human => 1, Friend::Fish => 1, Friend::Cat => 1, Friend::Dog => 1), Species::Human),
-            (hmap!(Friend::Fish => 1, Friend::Cat => 1, Friend::Dog => 1), Species::Human),
-            (hmap!(Friend::Human => 1, Friend::Fish => 1, Friend::Dog => 1), Species::Human),
+            (
+                hmap!(Friend::Human => 1, Friend::Fish => 1, Friend::Cat => 1),
+                Species::Cat,
+            ),
+            (
+                hmap!(Friend::Human => 1, Friend::Fish => 1, Friend::Cat => 1, Friend::Dog => 1),
+                Species::Human,
+            ),
+            (
+                hmap!(Friend::Fish => 1, Friend::Cat => 1, Friend::Dog => 1),
+                Species::Human,
+            ),
+            (
+                hmap!(Friend::Human => 1, Friend::Fish => 1, Friend::Dog => 1),
+                Species::Human,
+            ),
             (hmap!(Friend::Human => 1, Friend::Cat => 1), Species::Human),
-        };
+        ];
         let classifier = Classifier::train(&examples);
         assert_eq!(mammals_classifier(), classifier);
     }
@@ -231,8 +249,12 @@ mod tests {
     fn test_classify_norm() {
         let classifier = mammals_classifier();
         let probable_cat = hmap!(Friend::Fish => 1, Friend::Cat => 1);
-        let norm =
-            classifier.scores(&probable_cat).iter().map(|pair| pair.1).map(f32::exp).sum::<f32>();
+        let norm = classifier
+            .scores(&probable_cat)
+            .iter()
+            .map(|pair| pair.1)
+            .map(f32::exp)
+            .sum::<f32>();
         assert!(norm > 0.9999 && norm < 1.0001);
     }
 
@@ -247,7 +269,10 @@ mod tests {
 
         let probable_human =
             hmap!(Friend::Dog => 1, Friend::Cat => 1, Friend::Human => 1, Friend::Fish => 1);
-        assert_eq!(Species::Human, classifier.classify(&probable_human).unwrap().0);
+        assert_eq!(
+            Species::Human,
+            classifier.classify(&probable_human).unwrap().0
+        );
     }
 
     #[test]
@@ -256,19 +281,19 @@ mod tests {
             classifiers: hmap!(
                 "mammals" => mammals_classifier(),
                 "void" => Classifier { classes: hmap!() },
-            )
+            ),
         };
         let input_dog = Input {
             classifier_id: "mammals",
-            children: vec!(),
-            features: vec!(Friend::Human, Friend::Dog),
+            children: vec![],
+            features: vec![Friend::Human, Friend::Dog],
         };
         assert!(model.classify(&input_dog, &Species::Dog).unwrap() > -0.5);
         assert!(model.classify(&input_dog, &Species::Cat).unwrap() < -0.5);
         let input_dog = Input {
             classifier_id: "mammals",
-            children: vec!(input_dog),
-            features: vec!(Friend::Human, Friend::Dog),
+            children: vec![input_dog],
+            features: vec![Friend::Human, Friend::Dog],
         };
         let dog_dog = model.classify(&input_dog, &Species::Dog).unwrap();
         assert!(dog_dog > -1.0, "probalog: {:?}", dog_dog);

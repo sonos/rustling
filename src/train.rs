@@ -1,26 +1,22 @@
-use std::fmt::Debug;
-use std::cmp::Eq;
-use std::hash::Hash;
-
+use crate::{
+    Classifier, Feature, FeatureExtractor, Model, Node, ParsedNode, Range, RuleId, RuleSet,
+    RustlingResult, StashIndexable, Truth, Value,
+};
 use fnv::FnvHashMap;
 use fnv::FnvHashSet;
-
-use {Classifier, Feature, FeatureExtractor, Model, Node, RuleId, RuleSet, Truth,
-     Value, StashIndexable, ParsedNode};
-use RustlingResult;
+use std::cmp::Eq;
+use std::fmt::Debug;
+use std::hash::Hash;
 
 #[derive(Debug)]
 pub struct Example<V: Value> {
     pub text: &'static str,
-    pub predicate: Box<Check<V>>,
+    pub predicate: Box<dyn Check<V>>,
 }
 
 impl<V: Value> Example<V> {
-    pub fn new(text: &'static str, predicate: Box<Check<V>>) -> Example<V> {
-        Example {
-            text: text,
-            predicate: predicate,
-        }
+    pub fn new(text: &'static str, predicate: Box<dyn Check<V>>) -> Example<V> {
+        Example { text, predicate }
     }
 }
 
@@ -28,12 +24,16 @@ pub trait Check<V: Value>: Debug {
     fn check(&self, value: &ParsedNode<V>) -> bool;
 }
 
-pub fn train<V, F, E>(rules: &RuleSet<V>, examples: Vec<Example<V>>, feature_extractor: E)
-     -> RustlingResult<Model<RuleId, Truth, F>> 
-     where V: Value+Debug+StashIndexable,
-           V::Payload: Debug + Eq + Hash,
-           F: Feature,
-           E: FeatureExtractor<V, F>,
+pub fn train<V, F, E>(
+    rules: &RuleSet<V>,
+    examples: Vec<Example<V>>,
+    feature_extractor: E,
+) -> RustlingResult<Model<RuleId, Truth, F>>
+where
+    V: Value + Debug + StashIndexable,
+    V::Payload: Debug + Eq + Hash,
+    F: Feature,
+    E: FeatureExtractor<V, F>,
 {
     let mut classified_ex: FnvHashMap<RuleId, Vec<(FnvHashMap<F, usize>, Truth)>> =
         FnvHashMap::default();
@@ -42,11 +42,10 @@ pub fn train<V, F, E>(rules: &RuleSet<V>, examples: Vec<Example<V>>, feature_ext
 
         // - keep only full-range parsed nodes
         // - partition them according to the example check value
-        let (positive_parsed_nodes, negative_parse_nodes) =
-            stash
-                .into_iter()
-                .filter(|candidate| candidate.root_node.byte_range == ::Range(0, ex.text.len()))
-                .partition::<Vec<_>, _>(|candidate| ex.predicate.check(&candidate));
+        let (positive_parsed_nodes, negative_parse_nodes) = stash
+            .into_iter()
+            .filter(|candidate| candidate.root_node.byte_range == Range(0, ex.text.len()))
+            .partition::<Vec<_>, _>(|candidate| ex.predicate.check(&candidate));
         // - example sanity check
         if positive_parsed_nodes.is_empty() {
             Err(format_err!("example: {:?} matched no rule", ex.text))?
@@ -56,7 +55,10 @@ pub fn train<V, F, E>(rules: &RuleSet<V>, examples: Vec<Example<V>>, feature_ext
         let mut negative_nodes = FnvHashSet::default();
         let mut positive_nodes = FnvHashSet::default();
 
-        fn add_to_set<Payload: Clone + Eq + Hash>(nodes: &mut FnvHashSet<Node<Payload>>, node: &Node<Payload>) {
+        fn add_to_set<Payload: Clone + Eq + Hash>(
+            nodes: &mut FnvHashSet<Node<Payload>>,
+            node: &Node<Payload>,
+        ) {
             nodes.insert(node.clone());
             for child in &node.children {
                 add_to_set(nodes, child);
@@ -82,9 +84,9 @@ pub fn train<V, F, E>(rules: &RuleSet<V>, examples: Vec<Example<V>>, feature_ext
                     *counted_features.entry(f).or_insert(0) += 1;
                 }
                 classified_ex
-                    .entry(::RuleId(n.rule_sym))
+                    .entry(RuleId(n.rule_sym))
                     .or_insert(vec![])
-                    .push((counted_features, ::Truth(truth)));
+                    .push((counted_features, Truth(truth)));
             }
         }
     }
@@ -93,5 +95,5 @@ pub fn train<V, F, E>(rules: &RuleSet<V>, examples: Vec<Example<V>>, feature_ext
         .into_iter()
         .map(|(id, examples)| (id, Classifier::train(&examples)))
         .collect();
-    Ok(::Model { classifiers: classifiers })
+    Ok(Model { classifiers })
 }
